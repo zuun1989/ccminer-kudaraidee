@@ -273,6 +273,7 @@
     <CudaCompile Include="Algo256\cuda_bmw.cu">
       <MaxRegCount>76</MaxRegCount>
     </CudaCompile>
+    <CudaCompile Include="allium.cu" />
     <CudaCompile Include="crypto\cryptolight.cu" />
     <CudaCompile Include="crypto\cryptolight-core.cu">
       <MaxRegCount>64</MaxRegCount>

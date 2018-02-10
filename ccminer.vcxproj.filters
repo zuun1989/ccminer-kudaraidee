@@ -967,6 +967,9 @@
     <CudaCompile Include="equi\cuda_equi.cu">
       <Filter>Source Files\equi</Filter>
     </CudaCompile>
+    <CudaCompile Include="allium.cu">
+      <Filter>Source Files\CUDA</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\ccminer.ico">
