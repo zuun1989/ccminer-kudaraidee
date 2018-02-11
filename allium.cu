@@ -391,6 +391,8 @@ static bool init[MAX_GPUS] = { 0 };
 static __thread uint32_t throughput = 0;
 static __thread bool gtx750ti = false;
 
+static uint32_t *h_GNonces[16]; // this need to get fixed as the rest of that routine
+
 extern "C" int scanhash_allium(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done)
 {
 	uint32_t *pdata = work->data;
@@ -398,7 +400,6 @@ extern "C" int scanhash_allium(int thr_id, struct work* work, uint32_t max_nonce
 	uint32_t _ALIGN(64) endiandata[20];
 	const uint32_t Htarg = ptarget[7];
 	const uint32_t first_nonce = pdata[19];
-	uint32_t nonce = first_nonce;
 
 	int dev_id = device_map[thr_id];
 	int rc = 0;
@@ -446,67 +447,73 @@ extern "C" int scanhash_allium(int thr_id, struct work* work, uint32_t max_nonce
 
 		CUDA_SAFE_CALL(cudaMalloc(&d_hash[thr_id], (size_t)32 * throughput));
 
+		// nonce
+		cudaMallocHost(&h_GNonces[thr_id], 2 * sizeof(uint32_t));
+
 		init[thr_id] = true;
 	}
 	resNonces = h_resNonce[thr_id];
 
 	for (int k = 0; k < 19; k++)
 		be32enc(&endiandata[k], pdata[k]);
+
 	allium_blake2s_setBlock(endiandata, ptarget[7]);
 
+	cudaMemset(d_resNonce[thr_id], 0x00, maxResults*sizeof(uint32_t));
 	uint32_t _ALIGN(64) hash[8];
+
 	do {
-		be32enc(&endiandata[19], nonce);
+		//be32enc(&endiandata[19], nonce);
 
 		if (ptarget[7]) {
-			allium_blake2s_gpu_hash_nonce<<<grid, block>>>(throughput, nonce, d_resNonce[thr_id], ptarget[7]);
+			allium_blake2s_gpu_hash_nonce<<<grid, block>>>(throughput, pdata[19], d_resNonce[thr_id], ptarget[7]);
 		}
 		else {
-			allium_blake2s_gpu_hash_nonce<<<grid, block>>>(throughput, nonce, d_resNonce[thr_id]);
+			allium_blake2s_gpu_hash_nonce<<<grid, block>>>(throughput, pdata[19], d_resNonce[thr_id]);
 		}
 
+		*hashes_done = pdata[19] - first_nonce + throughput;
 		
-		be32enc(&d_hash[thr_id], (uint32_t) d_resNonce[thr_id]);
-		//d_hash[thr_id] = (uint32_t)d_resNonce[thr_id];
+		cudaMemcpy(&d_hash[thr_id], d_resNonce[thr_id], sizeof(uint32_t), cudaMemcpyHostToHost);
 
-		lyra2_cpu_hash_32(thr_id, throughput, nonce, d_hash[thr_id], gtx750ti);
+		lyra2_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id], gtx750ti);
 
-		cudaMemcpy(resNonces, d_hash[thr_id], sizeof(uint32_t), cudaMemcpyDeviceToHost);
-
-		if (resNonces[0])
+		cudaMemcpy(h_GNonces[thr_id], d_hash[thr_id], 1 * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+		work->nonces[0] = *h_GNonces[thr_id];
+		if (work->nonces[0])
 		{
-			cudaMemcpy(resNonces, d_hash[thr_id], maxResults*sizeof(uint32_t), cudaMemcpyDeviceToHost);
-			cudaMemset(d_hash[thr_id], 0x00, sizeof(uint32_t));
+			//gpulog(LOG_INFO, thr_id, "Running on nonce %u", work->nonces[0]);
+			//cudaMemcpy(resNonces, d_hash[thr_id], maxResults*sizeof(uint32_t), cudaMemcpyDeviceToHost);
+			//cudaMemset(d_hash[thr_id], 0x00, sizeof(uint32_t));
 
-			if (resNonces[0] >= maxResults) {
-				gpulog(LOG_WARNING, thr_id, "candidates flood: %u", resNonces[0]);
-				resNonces[0] = maxResults - 1;
-			}
+			//if (resNonces[0] >= maxResults) {
+			//	gpulog(LOG_WARNING, thr_id, "candidates flood: %u", resNonces[0]);
+			//	resNonces[0] = maxResults - 1;
+			//}
 
-			nonce = sph_bswap32(resNonces[1]);
-			be32enc(&endiandata[19], nonce);
+			pdata[19] = work->nonces[0];
+			be32enc(&endiandata[19], pdata[19]);
 			allium_hash(hash, endiandata);
 
 			if (hash[7] <= Htarg && fulltest(hash, ptarget)) {
 				gpulog(LOG_INFO, thr_id, "Found valid nonce");
-				work->nonces[0] = nonce;
+				//work->nonces[0] = pdata[19];
 				work->valid_nonces = 1;
 				work_set_target_ratio(work, hash);
-				pdata[19] = nonce;
 				*hashes_done = pdata[19] - first_nonce;
 				return work->valid_nonces;
 			}
 		}
 
-		if (nonce + throughput > max_nonce) {
-			nonce = max_nonce;
+		if (pdata[19] + throughput > max_nonce) {
+			pdata[19] = max_nonce;
 			break;
 		}
 
-		nonce += throughput;
+		pdata[19] += throughput;
 	} while (!work_restart[thr_id].restart);
 
-	pdata[19] = nonce;
+	//pdata[19] = nonce;
 	*hashes_done = pdata[19] - first_nonce + 1;
 
 	return 0;
@@ -524,7 +531,8 @@ extern "C" void free_allium(int thr_id)
 	cudaFree(d_hash[thr_id]);
 	if (device_sm[dev_id] >= 350)
 		cudaFree(d_matrix[thr_id]);
-	//lyra2Z_cpu_free(thr_id);
+	// nonce
+	cudaFreeHost(h_GNonces[thr_id]);
 
 	init[thr_id] = false;
 
