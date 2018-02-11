@@ -86,7 +86,7 @@ extern "C" int scanhash_allium(int thr_id, struct work* work, uint32_t max_nonce
 	const uint32_t first_nonce = pdata[19];
 
 	if (opt_benchmark)
-		ptarget[7] = 0x00ff;
+		ptarget[7] = 0x0400;
 
 	static __thread bool gtx750ti;
 	if (!init[thr_id])
