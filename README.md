@@ -4,9 +4,9 @@ Based on Christian Buchner's &amp; Christian H.'s CUDA project, no more active o
 
 Check the [README.txt](README.txt) for the additions
 
-BTC donation address: 1AJdfCpLWPNoAMDfHF1wD5y8VgKSSTHxPo (tpruvot)
+GRLC donation address: GUZA18kQyjfKDPLdcrHKhvcvdoS1JcUr2V (fancyIX)
 
-A part of the recent algos were originally written by [djm34](https://github.com/djm34) and [alexis78](https://github.com/alexis78)
+This branck is for improving allium performance forked from [lenis0012](https://github.com/lenis0012/ccminer)
 
 This variant was tested and built on Linux (ubuntu server 14.04, 16.04, Fedora 22 to 25)
 It is also built for Windows 7 to 10 with VStudio 2013, to stay compatible with Windows 7 and Vista.

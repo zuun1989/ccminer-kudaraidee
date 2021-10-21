@@ -1,6 +1,6 @@
 /**
- * Lyra2 (v1) cuda implementation based on djm34 work
- * tpruvot@github 2015, Nanashi 08/2016 (from 1.8-r2)
+ * Lyra2 (v1) cuda implementation improved by fancyIX
+ * fancyIX@github 2021
  */
 
 #include <stdio.h>
@@ -823,37 +823,37 @@ void lyra2_gpu_hash_fancyIX_32_2(uint32_t threads, uint32_t startNounce)
 	if (thread < threads)
 	{
 
-		const uint LOCAL_LINEAR = threadIdx.x & 3;
-		const uint player = threadIdx.y & 1;
-		const uint warp_local = LOCAL_LINEAR + 4 * player;
+		const unsigned int LOCAL_LINEAR = threadIdx.x & 3;
+		const unsigned int player = threadIdx.y & 1;
+		const unsigned int warp_local = LOCAL_LINEAR + 4 * player;
 
-		uint notepad[192];
+		unsigned int notepad[192];
 
-		uint zero = threadIdx.x ;
-		uint state[4];
-		uint si[3];
-		uint sII[3];
-		uint s0;
-		  uint s1;
-		  uint s2;
-		uint ss;
+		unsigned int zero = threadIdx.x ;
+		unsigned int state[4];
+		unsigned int si[3];
+		unsigned int sII[3];
+		unsigned int s0;
+		  unsigned int s1;
+		  unsigned int s2;
+		unsigned int ss;
 
-		if (LOCAL_LINEAR == 0) state[0] = __ldg(&(((uint *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 0) + player]));
-		if (LOCAL_LINEAR == 0) state[1] = __ldg(&(((uint *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 0) + player]));
-		if (LOCAL_LINEAR == 0) state[2] = __ldg(&(((uint *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 0) + player]));
-		if (LOCAL_LINEAR == 0) state[3] = __ldg(&(((uint *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 0) + player]));
-		if (LOCAL_LINEAR == 1) state[0] = __ldg(&(((uint *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 1) + player]));
-		if (LOCAL_LINEAR == 1) state[1] = __ldg(&(((uint *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 1) + player]));
-		if (LOCAL_LINEAR == 1) state[2] = __ldg(&(((uint *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 1) + player]));
-		if (LOCAL_LINEAR == 1) state[3] = __ldg(&(((uint *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 1) + player]));
-		if (LOCAL_LINEAR == 2) state[0] = __ldg(&(((uint *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 2) + player]));
-		if (LOCAL_LINEAR == 2) state[1] = __ldg(&(((uint *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 2) + player]));
-		if (LOCAL_LINEAR == 2) state[2] = __ldg(&(((uint *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 2) + player]));
-		if (LOCAL_LINEAR == 2) state[3] = __ldg(&(((uint *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 2) + player]));
-		if (LOCAL_LINEAR == 3) state[0] = __ldg(&(((uint *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 3) + player]));
-		if (LOCAL_LINEAR == 3) state[1] = __ldg(&(((uint *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 3) + player]));
-		if (LOCAL_LINEAR == 3) state[2] = __ldg(&(((uint *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 3) + player]));
-		if (LOCAL_LINEAR == 3) state[3] = __ldg(&(((uint *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 3) + player]));
+		if (LOCAL_LINEAR == 0) state[0] = __ldg(&(((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 0) + player]));
+		if (LOCAL_LINEAR == 0) state[1] = __ldg(&(((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 0) + player]));
+		if (LOCAL_LINEAR == 0) state[2] = __ldg(&(((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 0) + player]));
+		if (LOCAL_LINEAR == 0) state[3] = __ldg(&(((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 0) + player]));
+		if (LOCAL_LINEAR == 1) state[0] = __ldg(&(((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 1) + player]));
+		if (LOCAL_LINEAR == 1) state[1] = __ldg(&(((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 1) + player]));
+		if (LOCAL_LINEAR == 1) state[2] = __ldg(&(((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 1) + player]));
+		if (LOCAL_LINEAR == 1) state[3] = __ldg(&(((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 1) + player]));
+		if (LOCAL_LINEAR == 2) state[0] = __ldg(&(((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 2) + player]));
+		if (LOCAL_LINEAR == 2) state[1] = __ldg(&(((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 2) + player]));
+		if (LOCAL_LINEAR == 2) state[2] = __ldg(&(((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 2) + player]));
+		if (LOCAL_LINEAR == 2) state[3] = __ldg(&(((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 2) + player]));
+		if (LOCAL_LINEAR == 3) state[0] = __ldg(&(((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 3) + player]));
+		if (LOCAL_LINEAR == 3) state[1] = __ldg(&(((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 3) + player]));
+		if (LOCAL_LINEAR == 3) state[2] = __ldg(&(((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 3) + player]));
+		if (LOCAL_LINEAR == 3) state[3] = __ldg(&(((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 3) + player]));
 
 		write_state(notepad, state, 0, 7);
 		round_lyra_4way_sw(state);
@@ -883,8 +883,8 @@ void lyra2_gpu_hash_fancyIX_32_2(uint32_t threads, uint32_t startNounce)
 		make_next_hyper_macro(5, 2, 6, state, notepad);
 		make_next_hyper_macro(6, 1, 7, state, notepad);
 	  
-		uint modify = 0;
-		uint p0;
+		unsigned int modify = 0;
+		unsigned int p0;
 	  
 		broadcast_zero(state);
 		hyper_xor_dpp_macro(7, modify, 0, state, notepad);
@@ -917,22 +917,22 @@ void lyra2_gpu_hash_fancyIX_32_2(uint32_t threads, uint32_t startNounce)
 	  
 		zero = 1;
 
-		if (LOCAL_LINEAR == 0) ((uint *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 0) + player] = state[0];
-		if (LOCAL_LINEAR == 0) ((uint *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 0) + player] = state[1];
-		if (LOCAL_LINEAR == 0) ((uint *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 0) + player] = state[2];
-		if (LOCAL_LINEAR == 0) ((uint *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 0) + player] = state[3];
-		if (LOCAL_LINEAR == 1) ((uint *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 1) + player] = state[0];
-		if (LOCAL_LINEAR == 1) ((uint *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 1) + player] = state[1];
-		if (LOCAL_LINEAR == 1) ((uint *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 1) + player] = state[2];
-		if (LOCAL_LINEAR == 1) ((uint *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 1) + player] = state[3];
-		if (LOCAL_LINEAR == 2) ((uint *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 2) + player] = state[0];
-		if (LOCAL_LINEAR == 2) ((uint *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 2) + player] = state[1];
-		if (LOCAL_LINEAR == 2) ((uint *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 2) + player] = state[2];
-		if (LOCAL_LINEAR == 2) ((uint *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 2) + player] = state[3];
-		if (LOCAL_LINEAR == 3) ((uint *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 3) + player] = state[0];
-		if (LOCAL_LINEAR == 3) ((uint *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 3) + player] = state[1];
-		if (LOCAL_LINEAR == 3) ((uint *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 3) + player] = state[2];
-		if (LOCAL_LINEAR == 3) ((uint *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 3) + player] = state[3];
+		if (LOCAL_LINEAR == 0) ((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 0) + player] = state[0];
+		if (LOCAL_LINEAR == 0) ((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 0) + player] = state[1];
+		if (LOCAL_LINEAR == 0) ((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 0) + player] = state[2];
+		if (LOCAL_LINEAR == 0) ((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 0) + player] = state[3];
+		if (LOCAL_LINEAR == 1) ((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 1) + player] = state[0];
+		if (LOCAL_LINEAR == 1) ((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 1) + player] = state[1];
+		if (LOCAL_LINEAR == 1) ((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 1) + player] = state[2];
+		if (LOCAL_LINEAR == 1) ((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 1) + player] = state[3];
+		if (LOCAL_LINEAR == 2) ((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 2) + player] = state[0];
+		if (LOCAL_LINEAR == 2) ((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 2) + player] = state[1];
+		if (LOCAL_LINEAR == 2) ((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 2) + player] = state[2];
+		if (LOCAL_LINEAR == 2) ((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 2) + player] = state[3];
+		if (LOCAL_LINEAR == 3) ((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 3) + player] = state[0];
+		if (LOCAL_LINEAR == 3) ((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 3) + player] = state[1];
+		if (LOCAL_LINEAR == 3) ((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 3) + player] = state[2];
+		if (LOCAL_LINEAR == 3) ((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 3) + player] = state[3];
 	}
 }
 
