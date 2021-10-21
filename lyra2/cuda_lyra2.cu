@@ -515,13 +515,7 @@ __global__ void lyra2_gpu_hash_32_2(uint32_t threads, uint32_t startNounce, uint
 __global__ void lyra2_gpu_hash_32_3(uint32_t threads, uint32_t startNounce, uint2 *g_hash) {}
 #endif
 
-typedef union
-{
-	uint h4[32];
-	ulong h8[16];
-} lyraState_t;
-
-#if __CUDA_ARCH__ >= 320
+#if !defined(__CUDA_ARCH__) || __CUDA_ARCH__ >= 320
 // ============================ defines ========================
 #define ADD32_DPP(a, b) \
 	asm(" add.cc.u32  %0, %0, %2;\n\t" \
@@ -543,7 +537,7 @@ typedef union
     ss = s; \
 	{ \
 		asm(" shfl.sync.idx.b32  %0, %0, %2, 0x181F, 0xffffffff;\n\t" \
-			" shf.r.clamp.b32  %1, %0, %1, 24;" \
+			" shf.r.clamp.b32  %1, %1, %0, 24;" \
 			: "+r"(ss), "+r"(s) : "r"(warp_local + 4)); \
 	}
 
@@ -551,7 +545,7 @@ typedef union
     ss = s; \
 	{ \
 		asm(" shfl.sync.idx.b32  %0, %0, %2, 0x181F, 0xffffffff;\n\t" \
-			" shf.r.clamp.b32  %1, %0, %1, 16;" \
+			" shf.r.clamp.b32  %1, %1, %0, 16;" \
 			: "+r"(ss), "+r"(s) : "r"(warp_local + 4)); \
 	}
 
@@ -819,32 +813,6 @@ typedef union
 		real_matrw_write(sII, bigMat, matrw, 7); xor_state_modify(state, bigMat, mindex, matout, 7); \
 	} \
 } while (0);
-#else
-#define ADD32_DPP(a, b)
-#define SWAP32_DPP(s)
-#define ROTR64_24_DPP(s) 
-#define ROTR64_16_DPP(s) 
-#define ROTR64_63_DPP(s)
-#define cipher_G_macro(s) 
-#define shflldpp(state)
-#define shflrdpp(state)
-#define round_lyra_4way_sw(state) 
-#define xorrot_one_dpp(sII, state)
-#define broadcast_zero(s) 
-#define write_state(notepad, state, row, col)
-#define state_xor_modify(modify, row, col, mindex, state, notepad) 
-#define state_xor(state, bigMat, mindex, row, col)
-#define xor_state(state, bigMat, mindex, row, col)
-#define state_xor_plus(state, bigMat, mindex, matin, colin, matrw, colrw) 
-#define make_hyper_one_macro(state, bigMat) 
-#define make_next_hyper_macro(matin, matrw, matout, state, bigMat) 
-#define real_matrw_read(sII, bigMat, matrw, off)
-#define real_matrw_write(sII, bigMat, matrw, off) 
-#define state_xor_plus_modify(state, bigMat, mindex, matin, colin, matrw, colrw)
-#define xor_state_modify(state, bigMat, mindex, row, col)
-#define hyper_xor_dpp_macro( matin, matrw, matout, state, bigMat)
-#endif
-// =============================================================
 
 __global__
 __launch_bounds__(32, 1)
@@ -868,13 +836,7 @@ void lyra2_gpu_hash_fancyIX_32_2(uint32_t threads, uint32_t startNounce)
 		uint s0;
 		  uint s1;
 		  uint s2;
-		  uint s3;
-		int ss0;
-		uint ss1;
-		  uint ss3;
 		uint ss;
-		uint carry;
-		const uint mindex = (player & 1) == 0 ? 0 : 1;
 
 		if (LOCAL_LINEAR == 0) state[0] = __ldg(&(((uint *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 0) + player]));
 		if (LOCAL_LINEAR == 0) state[1] = __ldg(&(((uint *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 0) + player]));
@@ -892,14 +854,6 @@ void lyra2_gpu_hash_fancyIX_32_2(uint32_t threads, uint32_t startNounce)
 		if (LOCAL_LINEAR == 3) state[1] = __ldg(&(((uint *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 3) + player]));
 		if (LOCAL_LINEAR == 3) state[2] = __ldg(&(((uint *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 3) + player]));
 		if (LOCAL_LINEAR == 3) state[3] = __ldg(&(((uint *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 3) + player]));
-
-		#if 0
-		if (thread == 0) {
-			for (int i = 0; i < 4; i++) {
-				printf("state[%d] = %X, x=%d, y=%d, z=%d\n", i, state[i], threadIdx.x, threadIdx.y);
-			}
-		}
-		#endif
 
 		write_state(notepad, state, 0, 7);
 		round_lyra_4way_sw(state);
@@ -931,9 +885,6 @@ void lyra2_gpu_hash_fancyIX_32_2(uint32_t threads, uint32_t startNounce)
 	  
 		uint modify = 0;
 		uint p0;
-		uint p1;
-		uint p2;
-		uint p3;
 	  
 		broadcast_zero(state);
 		hyper_xor_dpp_macro(7, modify, 0, state, notepad);
@@ -985,35 +936,34 @@ void lyra2_gpu_hash_fancyIX_32_2(uint32_t threads, uint32_t startNounce)
 	}
 }
 
-#if 0
-short device_map[MAX_GPUS];
-long device_sm[MAX_GPUS];
-short device_mpcount[MAX_GPUS];
-int cuda_arch[MAX_GPUS];
+#else
+#define ADD32_DPP(a, b)
+#define SWAP32_DPP(s)
+#define ROTR64_24_DPP(s) 
+#define ROTR64_16_DPP(s) 
+#define ROTR64_63_DPP(s)
+#define cipher_G_macro(s) 
+#define shflldpp(state)
+#define shflrdpp(state)
+#define round_lyra_4way_sw(state) 
+#define xorrot_one_dpp(sII, state)
+#define broadcast_zero(s) 
+#define write_state(notepad, state, row, col)
+#define state_xor_modify(modify, row, col, mindex, state, notepad) 
+#define state_xor(state, bigMat, mindex, row, col)
+#define xor_state(state, bigMat, mindex, row, col)
+#define state_xor_plus(state, bigMat, mindex, matin, colin, matrw, colrw) 
+#define make_hyper_one_macro(state, bigMat) 
+#define make_next_hyper_macro(matin, matrw, matout, state, bigMat) 
+#define real_matrw_read(sII, bigMat, matrw, off)
+#define real_matrw_write(sII, bigMat, matrw, off) 
+#define state_xor_plus_modify(state, bigMat, mindex, matin, colin, matrw, colrw)
+#define xor_state_modify(state, bigMat, mindex, row, col)
+#define hyper_xor_dpp_macro( matin, matrw, matout, state, bigMat)
+__global__ void lyra2_gpu_hash_fancyIX_32_2(uint32_t threads, uint32_t startNounce) {}
 
-__global__ void nvcc_get_arch(int *d_version)
-{
-	*d_version = 0;
-#ifdef __CUDA_ARCH__
-	*d_version = __CUDA_ARCH__;
 #endif
-}
-
-__host__
-int cuda_get_arch(int thr_id)
-{
-	int *d_version;
-	int dev_id = 0;
-	if (cuda_arch[dev_id] == 0) {
-		// only do it once...
-		cudaMalloc(&d_version, sizeof(int));
-		nvcc_get_arch <<< 1, 1 >>> (d_version);
-		cudaMemcpy(&cuda_arch[dev_id], d_version, sizeof(int), cudaMemcpyDeviceToHost);
-		cudaFree(d_version);
-	}
-	return cuda_arch[dev_id];
-}
-#endif
+// =============================================================
 
 __host__
 void lyra2_cpu_init(int thr_id, uint32_t threads, uint64_t *d_matrix)
@@ -1041,8 +991,15 @@ void lyra2_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startNounce, uint6
 	dim3 grid3((threads + tpb - 1) / tpb);
 	dim3 block3(tpb);
 
+	if (cuda_arch[dev_id] >= 520)
+	{
+		lyra2_gpu_hash_32_1 <<< grid2, block2 >>> (threads, startNounce, (uint2*)d_hash);
 
-	if (cuda_arch[dev_id] >= 320)
+		lyra2_gpu_hash_fancyIX_32_2 <<< grid1, block1 >>> (threads, startNounce);
+
+		lyra2_gpu_hash_32_3 <<< grid2, block2 >>> (threads, startNounce, (uint2*)d_hash);
+	}
+	else if (cuda_arch[dev_id] >= 500)
 	{
 		lyra2_gpu_hash_32_1_sm5 <<< grid2, block2 >>> (threads, startNounce, (uint2*)d_hash);
 
@@ -1053,71 +1010,3 @@ void lyra2_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startNounce, uint6
 	else
 		lyra2_gpu_hash_32_sm2 <<< grid3, block3 >>> (threads, startNounce, d_hash);
 }
-
-#if 0
-static uint64_t* d_hash[MAX_GPUS];
-
-#define worksize 1024
-static uint64_t* h_matrix[MAX_GPUS];
-static uint64_t* d_matrix[MAX_GPUS];
-
-
-int main() {
-	int dev_id = 0;
-	int thr_id = 0;
-	int throughput = worksize;
-	int startNounce = 0;
-
-	printf("cuda_get_arch=%d\n",cuda_get_arch(thr_id));
-
-	cudaDeviceProp props;
-	cudaGetDeviceProperties(&props, dev_id);
-
-	device_sm[dev_id] = (props.major * 100 + props.minor * 10);
-	device_mpcount[dev_id] = (short) props.multiProcessorCount;
-
-	printf("device sm = %d\n", device_sm[dev_id]);
-
-	size_t matrix_sz = sizeof(uint64_t) * 4 * 4;
-	CUDA_SAFE_CALL(cudaMalloc(&d_matrix[thr_id], matrix_sz * throughput));
-	CUDA_SAFE_CALL(cudaMallocHost(&h_matrix[thr_id], matrix_sz * throughput));
-	lyraState_t *states = (lyraState_t *) h_matrix[thr_id];
-
-	for (int i = 0; i < worksize; i++)
-	{
-		for (int j = 0; j < 16; j++)
-		{
-			states[i].h4[j] = 133 * i - j * 7;
-		}
-	}
-
-	for (int i = 0; i < 128; i++)
-	{
-		printf("%lX, ", states[i / 8].h8[i % 2]);
-	}
-	printf("\n");
-
-	printf("Done fread binary\nLoaded bin\nBinary size found in binary slot 0: 330608\n");
-
-	cudaMemcpy(d_matrix[thr_id], h_matrix[thr_id],  matrix_sz * throughput, cudaMemcpyHostToDevice);
-	cudaMemcpyToSymbol(DMatrix, &d_matrix, sizeof(uint64_t*), 0, cudaMemcpyHostToDevice);
-
-	int threads = throughput;
-	uint32_t tpb = 32;
-
-	dim3 grid1(1, 1, (threads * 8 + tpb - 1) / tpb);
-	dim3 block1(4, 2, tpb >> 3);
-
-	lyra2_gpu_hash_fancyIX_32_2 <<< grid1, block1 >>> (threads, startNounce);
-	cudaDeviceSynchronize();
-
-	cudaMemcpy(h_matrix[thr_id], d_matrix[thr_id],  matrix_sz * throughput, cudaMemcpyDeviceToHost);
-
-	for (int i = 0; i < 128; i++)
-	{
-		printf("%lX, ", states[i / 8].h8[i % 8]);
-	}
-	printf("\n");
-	printf("\n");
-}
-#endif
