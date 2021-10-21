@@ -979,7 +979,7 @@ void lyra2_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startNounce, uint6
 
 	uint32_t tpb = 32;
 
-	if (cuda_arch[dev_id] >= 320) tpb = 32;
+	if (cuda_arch[dev_id] >= 500) tpb = 32;
 	else if (cuda_arch[dev_id] >= 200) tpb = TPB20;
 
 	dim3 grid1(1, 1, (threads * 8 + tpb - 1) / tpb);
