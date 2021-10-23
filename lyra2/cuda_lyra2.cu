@@ -517,44 +517,49 @@ __global__ void lyra2_gpu_hash_32_3(uint32_t threads, uint32_t startNounce, uint
 
 #if !defined(__CUDA_ARCH__) || __CUDA_ARCH__ >= 320
 // ============================ defines ========================
+
+#define LOCAL_LINEAR (threadIdx.x & 3)
+#define player (threadIdx.y & 1)
+#define warp_local (LOCAL_LINEAR + 4 * player)
+
 #define ADD32_DPP(a, b) \
 	asm(" add.cc.u32  %0, %0, %2;\n\t" \
 		" addc.u32 %1, 0, 0;\n\t" \
 		" and.b32 %1, %1, %3;\n\t" \
-		" shfl.sync.idx.b32  %1, %1, %4, 0x181F, 0xffffffff;\n\t" \
+		" shfl.sync.bfly.b32  %1, %1, 4, 0x181F, 0xffffffff;\n\t" \
 		" add.u32 %0, %0, %1;" \
-		: "+r"(a), "+r"(zero): "r"(b), "r"(~player), "r"(warp_local + 4));
+		: "+r"(a), "+r"(zero): "r"(b), "r"(~player));
 	
 
 #define SWAP32_DPP(s) \
     ss = s; \
 	{ \
-		  asm(" shfl.sync.idx.b32  %0, %1, %2, 0x181F, 0xffffffff;\n\t" \
-		      : "=r"(s) : "r"(ss), "r"(warp_local + 4)); \
+		  asm(" shfl.sync.bfly.b32  %0, %1, 4, 0x181F, 0xffffffff;\n\t" \
+		      : "=r"(s) : "r"(ss)); \
 	}
 
 #define ROTR64_24_DPP(s) \
     ss = s; \
 	{ \
-		asm(" shfl.sync.idx.b32  %0, %0, %2, 0x181F, 0xffffffff;\n\t" \
+		asm(" shfl.sync.bfly.b32  %0, %0, 4, 0x181F, 0xffffffff;\n\t" \
 			" shf.r.clamp.b32  %1, %1, %0, 24;" \
-			: "+r"(ss), "+r"(s) : "r"(warp_local + 4)); \
+			: "+r"(ss), "+r"(s) : ); \
 	}
 
 #define ROTR64_16_DPP(s) \
     ss = s; \
 	{ \
-		asm(" shfl.sync.idx.b32  %0, %0, %2, 0x181F, 0xffffffff;\n\t" \
+		asm(" shfl.sync.bfly.b32  %0, %0, 4, 0x181F, 0xffffffff;\n\t" \
 			" shf.r.clamp.b32  %1, %1, %0, 16;" \
-			: "+r"(ss), "+r"(s) : "r"(warp_local + 4)); \
+			: "+r"(ss), "+r"(s) : ); \
 	}
 
 #define ROTR64_63_DPP(s) \
     ss = s; \
 	{ \
-		asm(" shfl.sync.idx.b32  %0, %0, %2, 0x181F, 0xffffffff;\n\t" \
+		asm(" shfl.sync.bfly.b32  %0, %0, 4, 0x181F, 0xffffffff;\n\t" \
 			" shf.r.clamp.b32  %1, %0, %1, 31;" \
-			: "+r"(ss), "+r"(s) : "r"(warp_local + 4)); \
+			: "+r"(ss), "+r"(s) : ); \
 	}
 
 // Usually just #define G(a,b,c,d)...; I have no time to read the Lyra paper
@@ -569,13 +574,13 @@ __global__ void lyra2_gpu_hash_32_3(uint32_t threads, uint32_t startNounce, uint
 	asm(" shfl.sync.idx.b32  %0, %0, %3, 0x1C1F, 0xffffffff;\n\t" \
 	    " shfl.sync.idx.b32  %1, %1, %4, 0x1C1F, 0xffffffff;\n\t" \
 		" shfl.sync.idx.b32  %2, %2, %5, 0x1C1F, 0xffffffff;" \
-		: "+r"(state[1]), "+r"(state[2]), "+r"(state[3]) : "r"(LOCAL_LINEAR + 1), "r"(LOCAL_LINEAR + 2), "r"(LOCAL_LINEAR + 3));
+		: "+r"(state[1]), "+r"(state[2]), "+r"(state[3]) : "r"(((LOCAL_LINEAR + 1) & 3)), "r"(((LOCAL_LINEAR + 2) & 3)), "r"(((LOCAL_LINEAR + 3) & 3)));
 
 #define shflrdpp(state) \
 	asm(" shfl.sync.idx.b32  %0, %0, %3, 0x1C1F, 0xffffffff;\n\t" \
 		" shfl.sync.idx.b32  %1, %1, %4, 0x1C1F, 0xffffffff;\n\t" \
 		" shfl.sync.idx.b32  %2, %2, %5, 0x1C1F, 0xffffffff;" \
-		: "+r"(state[1]), "+r"(state[2]), "+r"(state[3]) : "r"(LOCAL_LINEAR + 3), "r"(LOCAL_LINEAR + 2), "r"(LOCAL_LINEAR + 1));
+		: "+r"(state[1]), "+r"(state[2]), "+r"(state[3]) : "r"(((LOCAL_LINEAR + 3) & 3)), "r"(((LOCAL_LINEAR + 2) & 3)), "r"(((LOCAL_LINEAR + 1) & 3)));
 
 // pad counts 4 entries each hash team of 4
 #define round_lyra_4way_sw(state)   \
@@ -591,7 +596,7 @@ __global__ void lyra2_gpu_hash_32_3(uint32_t threads, uint32_t startNounce, uint
 	asm(" shfl.sync.idx.b32  %0, %0, %3, 0x1C1F, 0xffffffff;\n\t" \
 		" shfl.sync.idx.b32  %1, %1, %3, 0x1C1F, 0xffffffff;\n\t" \
 		" shfl.sync.idx.b32  %2, %2, %3, 0x1C1F, 0xffffffff;" \
-		: "+r"(s0), "+r"(s1), "+r"(s2) : "r"(LOCAL_LINEAR + 3)); \
+		: "+r"(s0), "+r"(s1), "+r"(s2) : "r"(((LOCAL_LINEAR + 3) & 3))); \
 	if ((threadIdx.x & 3) == 1) sII[0] ^= (s0); \
 	if ((threadIdx.x & 3) == 1) sII[1] ^= (s1); \
 	if ((threadIdx.x & 3) == 1) sII[2] ^= (s2); \
@@ -609,8 +614,7 @@ __global__ void lyra2_gpu_hash_32_3(uint32_t threads, uint32_t startNounce, uint
     p0 = (s[0] & 7); \
 	asm(" shfl.sync.idx.b32  %0, %0, 0x0, 0x181F, 0xffffffff;" \
 		: "+r"(p0) :); \
-	if ((threadIdx.x & 2) == 0) modify = p0; \
-	if ((threadIdx.x & 2) == 2) modify = p0;
+	modify = p0;
 
 #define write_state(notepad, state, row, col) \
   notepad[24 * row + col * 3] = state[0]; \
@@ -712,56 +716,56 @@ __global__ void lyra2_gpu_hash_32_3(uint32_t threads, uint32_t startNounce, uint
 } while (0);
 
 #define real_matrw_read(sII, bigMat, matrw, off) \
-		if (matrw == 0) sII[0] = bigMat[24 * 0 + off * 3]; \
-		if (matrw == 0) sII[1] = bigMat[24 * 0 + off * 3 + 1]; \
-		if (matrw == 0) sII[2] = bigMat[24 * 0 + off * 3 + 2]; \
-		if (matrw == 1) sII[0] = bigMat[24 * 1 + off * 3]; \
-		if (matrw == 1) sII[1] = bigMat[24 * 1 + off * 3 + 1]; \
-		if (matrw == 1) sII[2] = bigMat[24 * 1 + off * 3 + 2]; \
-		if (matrw == 2) sII[0] = bigMat[24 * 2 + off * 3]; \
-		if (matrw == 2) sII[1] = bigMat[24 * 2 + off * 3 + 1]; \
-		if (matrw == 2) sII[2] = bigMat[24 * 2 + off * 3 + 2]; \
-		if (matrw == 3) sII[0] = bigMat[24 * 3 + off * 3]; \
-		if (matrw == 3) sII[1] = bigMat[24 * 3 + off * 3 + 1]; \
-		if (matrw == 3) sII[2] = bigMat[24 * 3 + off * 3 + 2]; \
-		if (matrw == 4) sII[0] = bigMat[24 * 4 + off * 3]; \
-		if (matrw == 4) sII[1] = bigMat[24 * 4 + off * 3 + 1]; \
-		if (matrw == 4) sII[2] = bigMat[24 * 4 + off * 3 + 2]; \
-		if (matrw == 5) sII[0] = bigMat[24 * 5 + off * 3]; \
-		if (matrw == 5) sII[1] = bigMat[24 * 5 + off * 3 + 1]; \
-		if (matrw == 5) sII[2] = bigMat[24 * 5 + off * 3 + 2]; \
-		if (matrw == 6) sII[0] = bigMat[24 * 6 + off * 3]; \
-		if (matrw == 6) sII[1] = bigMat[24 * 6 + off * 3 + 1]; \
-		if (matrw == 6) sII[2] = bigMat[24 * 6 + off * 3 + 2]; \
-		if (matrw == 7) sII[0] = bigMat[24 * 7 + off * 3]; \
-		if (matrw == 7) sII[1] = bigMat[24 * 7 + off * 3 + 1]; \
-		if (matrw == 7) sII[2] = bigMat[24 * 7 + off * 3 + 2];
+		if ((matrw & 7) == 0) sII[0] = bigMat[24 * 0 + off * 3]; \
+		if ((matrw & 7) == 0) sII[1] = bigMat[24 * 0 + off * 3 + 1]; \
+		if ((matrw & 7) == 0) sII[2] = bigMat[24 * 0 + off * 3 + 2]; \
+		if ((matrw & 7) == 1) sII[0] = bigMat[24 * 1 + off * 3]; \
+		if ((matrw & 7) == 1) sII[1] = bigMat[24 * 1 + off * 3 + 1]; \
+		if ((matrw & 7) == 1) sII[2] = bigMat[24 * 1 + off * 3 + 2]; \
+		if ((matrw & 7) == 2) sII[0] = bigMat[24 * 2 + off * 3]; \
+		if ((matrw & 7) == 2) sII[1] = bigMat[24 * 2 + off * 3 + 1]; \
+		if ((matrw & 7) == 2) sII[2] = bigMat[24 * 2 + off * 3 + 2]; \
+		if ((matrw & 7) == 3) sII[0] = bigMat[24 * 3 + off * 3]; \
+		if ((matrw & 7) == 3) sII[1] = bigMat[24 * 3 + off * 3 + 1]; \
+		if ((matrw & 7) == 3) sII[2] = bigMat[24 * 3 + off * 3 + 2]; \
+		if ((matrw & 7) == 4) sII[0] = bigMat[24 * 4 + off * 3]; \
+		if ((matrw & 7) == 4) sII[1] = bigMat[24 * 4 + off * 3 + 1]; \
+		if ((matrw & 7) == 4) sII[2] = bigMat[24 * 4 + off * 3 + 2]; \
+		if ((matrw & 7) == 5) sII[0] = bigMat[24 * 5 + off * 3]; \
+		if ((matrw & 7) == 5) sII[1] = bigMat[24 * 5 + off * 3 + 1]; \
+		if ((matrw & 7) == 5) sII[2] = bigMat[24 * 5 + off * 3 + 2]; \
+		if ((matrw & 7) == 6) sII[0] = bigMat[24 * 6 + off * 3]; \
+		if ((matrw & 7) == 6) sII[1] = bigMat[24 * 6 + off * 3 + 1]; \
+		if ((matrw & 7) == 6) sII[2] = bigMat[24 * 6 + off * 3 + 2]; \
+		if ((matrw & 7) == 7) sII[0] = bigMat[24 * 7 + off * 3]; \
+		if ((matrw & 7) == 7) sII[1] = bigMat[24 * 7 + off * 3 + 1]; \
+		if ((matrw & 7) == 7) sII[2] = bigMat[24 * 7 + off * 3 + 2];
 
 #define real_matrw_write(sII, bigMat, matrw, off) \
-		if (matrw == 0) bigMat[24 * 0 + off * 3] = sII[0]; \
-		if (matrw == 0) bigMat[24 * 0 + off * 3 + 1] = sII[1]; \
-		if (matrw == 0) bigMat[24 * 0 + off * 3 + 2] = sII[2]; \
-		if (matrw == 1) bigMat[24 * 1 + off * 3] = sII[0]; \
-		if (matrw == 1) bigMat[24 * 1 + off * 3 + 1] = sII[1]; \
-		if (matrw == 1) bigMat[24 * 1 + off * 3 + 2] = sII[2]; \
-		if (matrw == 2) bigMat[24 * 2 + off * 3] = sII[0]; \
-		if (matrw == 2) bigMat[24 * 2 + off * 3 + 1] = sII[1]; \
-		if (matrw == 2) bigMat[24 * 2 + off * 3 + 2] = sII[2]; \
-		if (matrw == 3) bigMat[24 * 3 + off * 3] = sII[0]; \
-		if (matrw == 3) bigMat[24 * 3 + off * 3 + 1] = sII[1]; \
-		if (matrw == 3) bigMat[24 * 3 + off * 3 + 2] = sII[2]; \
-		if (matrw == 4) bigMat[24 * 4 + off * 3] = sII[0]; \
-		if (matrw == 4) bigMat[24 * 4 + off * 3 + 1] = sII[1]; \
-		if (matrw == 4) bigMat[24 * 4 + off * 3 + 2] = sII[2]; \
-		if (matrw == 5) bigMat[24 * 5 + off * 3] = sII[0]; \
-		if (matrw == 5) bigMat[24 * 5 + off * 3 + 1] = sII[1]; \
-		if (matrw == 5) bigMat[24 * 5 + off * 3 + 2] = sII[2]; \
-		if (matrw == 6) bigMat[24 * 6 + off * 3] = sII[0]; \
-		if (matrw == 6) bigMat[24 * 6 + off * 3 + 1] = sII[1]; \
-		if (matrw == 6) bigMat[24 * 6 + off * 3 + 2] = sII[2]; \
-		if (matrw == 7) bigMat[24 * 7 + off * 3] = sII[0]; \
-		if (matrw == 7) bigMat[24 * 7 + off * 3 + 1] = sII[1]; \
-		if (matrw == 7) bigMat[24 * 7 + off * 3 + 2] = sII[2];
+		if ((matrw & 7) == 0) bigMat[24 * 0 + off * 3] = sII[0]; \
+		if ((matrw & 7) == 0) bigMat[24 * 0 + off * 3 + 1] = sII[1]; \
+		if ((matrw & 7) == 0) bigMat[24 * 0 + off * 3 + 2] = sII[2]; \
+		if ((matrw & 7) == 1) bigMat[24 * 1 + off * 3] = sII[0]; \
+		if ((matrw & 7) == 1) bigMat[24 * 1 + off * 3 + 1] = sII[1]; \
+		if ((matrw & 7) == 1) bigMat[24 * 1 + off * 3 + 2] = sII[2]; \
+		if ((matrw & 7) == 2) bigMat[24 * 2 + off * 3] = sII[0]; \
+		if ((matrw & 7) == 2) bigMat[24 * 2 + off * 3 + 1] = sII[1]; \
+		if ((matrw & 7) == 2) bigMat[24 * 2 + off * 3 + 2] = sII[2]; \
+		if ((matrw & 7) == 3) bigMat[24 * 3 + off * 3] = sII[0]; \
+		if ((matrw & 7) == 3) bigMat[24 * 3 + off * 3 + 1] = sII[1]; \
+		if ((matrw & 7) == 3) bigMat[24 * 3 + off * 3 + 2] = sII[2]; \
+		if ((matrw & 7) == 4) bigMat[24 * 4 + off * 3] = sII[0]; \
+		if ((matrw & 7) == 4) bigMat[24 * 4 + off * 3 + 1] = sII[1]; \
+		if ((matrw & 7) == 4) bigMat[24 * 4 + off * 3 + 2] = sII[2]; \
+		if ((matrw & 7) == 5) bigMat[24 * 5 + off * 3] = sII[0]; \
+		if ((matrw & 7) == 5) bigMat[24 * 5 + off * 3 + 1] = sII[1]; \
+		if ((matrw & 7) == 5) bigMat[24 * 5 + off * 3 + 2] = sII[2]; \
+		if ((matrw & 7) == 6) bigMat[24 * 6 + off * 3] = sII[0]; \
+		if ((matrw & 7) == 6) bigMat[24 * 6 + off * 3 + 1] = sII[1]; \
+		if ((matrw & 7) == 6) bigMat[24 * 6 + off * 3 + 2] = sII[2]; \
+		if ((matrw & 7) == 7) bigMat[24 * 7 + off * 3] = sII[0]; \
+		if ((matrw & 7) == 7) bigMat[24 * 7 + off * 3 + 1] = sII[1]; \
+		if ((matrw & 7) == 7) bigMat[24 * 7 + off * 3 + 2] = sII[2];
 
 #define state_xor_plus_modify(state, bigMat, mindex, matin, colin, matrw, colrw) \
    si[0] = bigMat[24 * matin + colin * 3]; \
@@ -818,15 +822,10 @@ __global__
 __launch_bounds__(32, 1)
 void lyra2_gpu_hash_fancyIX_32_2(uint32_t threads, uint32_t startNounce)
 {
-	const uint32_t thread = blockDim.z * blockIdx.z + threadIdx.z;
+	const uint32_t thread = 4 * blockIdx.x + threadIdx.z;
 
 	if (thread < threads)
 	{
-
-		const unsigned int LOCAL_LINEAR = threadIdx.x & 3;
-		const unsigned int player = threadIdx.y & 1;
-		const unsigned int warp_local = LOCAL_LINEAR + 4 * player;
-
 		unsigned int notepad[192];
 
 		unsigned int zero = threadIdx.x ;
@@ -838,22 +837,22 @@ void lyra2_gpu_hash_fancyIX_32_2(uint32_t threads, uint32_t startNounce)
 		  unsigned int s2;
 		unsigned int ss;
 
-		if (LOCAL_LINEAR == 0) state[0] = __ldg(&(((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 0) + player]));
-		if (LOCAL_LINEAR == 0) state[1] = __ldg(&(((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 0) + player]));
-		if (LOCAL_LINEAR == 0) state[2] = __ldg(&(((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 0) + player]));
-		if (LOCAL_LINEAR == 0) state[3] = __ldg(&(((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 0) + player]));
-		if (LOCAL_LINEAR == 1) state[0] = __ldg(&(((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 1) + player]));
-		if (LOCAL_LINEAR == 1) state[1] = __ldg(&(((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 1) + player]));
-		if (LOCAL_LINEAR == 1) state[2] = __ldg(&(((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 1) + player]));
-		if (LOCAL_LINEAR == 1) state[3] = __ldg(&(((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 1) + player]));
-		if (LOCAL_LINEAR == 2) state[0] = __ldg(&(((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 2) + player]));
-		if (LOCAL_LINEAR == 2) state[1] = __ldg(&(((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 2) + player]));
-		if (LOCAL_LINEAR == 2) state[2] = __ldg(&(((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 2) + player]));
-		if (LOCAL_LINEAR == 2) state[3] = __ldg(&(((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 2) + player]));
-		if (LOCAL_LINEAR == 3) state[0] = __ldg(&(((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 3) + player]));
-		if (LOCAL_LINEAR == 3) state[1] = __ldg(&(((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 3) + player]));
-		if (LOCAL_LINEAR == 3) state[2] = __ldg(&(((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 3) + player]));
-		if (LOCAL_LINEAR == 3) state[3] = __ldg(&(((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 3) + player]));
+		if (LOCAL_LINEAR == 0) { state[0] = __ldg(&(((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 0) + player]));
+		 state[1] = __ldg(&(((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 0) + player]));
+		 state[2] = __ldg(&(((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 0) + player]));
+		 state[3] = __ldg(&(((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 0) + player])); }
+		else if (LOCAL_LINEAR == 1) { state[0] = __ldg(&(((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 1) + player]));
+		 state[1] = __ldg(&(((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 1) + player]));
+		 state[2] = __ldg(&(((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 1) + player]));
+		 state[3] = __ldg(&(((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 1) + player])); }
+		else if (LOCAL_LINEAR == 2) { state[0] = __ldg(&(((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 2) + player]));
+		 state[1] = __ldg(&(((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 2) + player]));
+		 state[2] = __ldg(&(((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 2) + player]));
+		 state[3] = __ldg(&(((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 2) + player])); }
+		else if (LOCAL_LINEAR == 3) { state[0] = __ldg(&(((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 3) + player]));
+		 state[1] = __ldg(&(((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 3) + player]));
+		 state[2] = __ldg(&(((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 3) + player]));
+		 state[3] = __ldg(&(((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 3) + player])); }
 
 		write_state(notepad, state, 0, 7);
 		round_lyra_4way_sw(state);
@@ -917,22 +916,22 @@ void lyra2_gpu_hash_fancyIX_32_2(uint32_t threads, uint32_t startNounce)
 	  
 		zero = 1;
 
-		if (LOCAL_LINEAR == 0) ((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 0) + player] = state[0];
-		if (LOCAL_LINEAR == 0) ((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 0) + player] = state[1];
-		if (LOCAL_LINEAR == 0) ((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 0) + player] = state[2];
-		if (LOCAL_LINEAR == 0) ((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 0) + player] = state[3];
-		if (LOCAL_LINEAR == 1) ((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 1) + player] = state[0];
-		if (LOCAL_LINEAR == 1) ((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 1) + player] = state[1];
-		if (LOCAL_LINEAR == 1) ((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 1) + player] = state[2];
-		if (LOCAL_LINEAR == 1) ((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 1) + player] = state[3];
-		if (LOCAL_LINEAR == 2) ((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 2) + player] = state[0];
-		if (LOCAL_LINEAR == 2) ((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 2) + player] = state[1];
-		if (LOCAL_LINEAR == 2) ((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 2) + player] = state[2];
-		if (LOCAL_LINEAR == 2) ((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 2) + player] = state[3];
-		if (LOCAL_LINEAR == 3) ((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 3) + player] = state[0];
-		if (LOCAL_LINEAR == 3) ((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 3) + player] = state[1];
-		if (LOCAL_LINEAR == 3) ((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 3) + player] = state[2];
-		if (LOCAL_LINEAR == 3) ((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 3) + player] = state[3];
+		if (LOCAL_LINEAR == 0) { ((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 0) + player] = state[0];
+		 ((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 0) + player] = state[1];
+		 ((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 0) + player] = state[2];
+		 ((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 0) + player] = state[3]; }
+		else if (LOCAL_LINEAR == 1) { ((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 1) + player] = state[0];
+		 ((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 1) + player] = state[1];
+		 ((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 1) + player] = state[2];
+		 ((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 1) + player] = state[3]; }
+		else if (LOCAL_LINEAR == 2) { ((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 2) + player] = state[0];
+		 ((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 2) + player] = state[1];
+		 ((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 2) + player] = state[2];
+		 ((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 2) + player] = state[3]; }
+		else if (LOCAL_LINEAR == 3) { ((unsigned int *)DMatrix)[2 *((0 * threads + thread) * blockDim.x + 3) + player] = state[0];
+		 ((unsigned int *)DMatrix)[2 *((1 * threads + thread) * blockDim.x + 3) + player] = state[1];
+		 ((unsigned int *)DMatrix)[2 *((2 * threads + thread) * blockDim.x + 3) + player] = state[2];
+		 ((unsigned int *)DMatrix)[2 *((3 * threads + thread) * blockDim.x + 3) + player] = state[3]; }
 	}
 }
 
@@ -982,7 +981,7 @@ void lyra2_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startNounce, uint6
 	if (cuda_arch[dev_id] >= 500) tpb = 32;
 	else if (cuda_arch[dev_id] >= 200) tpb = TPB20;
 
-	dim3 grid1(1, 1, (threads * 8 + tpb - 1) / tpb);
+	dim3 grid1((threads * 8 + tpb - 1) / tpb);
 	dim3 block1(4, 2, tpb >> 3);
 
 	dim3 grid2((threads + 64 - 1) / 64);
