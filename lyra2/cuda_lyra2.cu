@@ -542,7 +542,7 @@ __global__ void lyra2_gpu_hash_32_3(uint32_t threads, uint32_t startNounce, uint
     ss = s; \
 	{ \
 		asm(" shfl.sync.bfly.b32  %0, %0, 4, 0x181F, 0xffffffff;\n\t" \
-			" shf.r.clamp.b32  %1, %1, %0, 24;" \
+			" prmt.b32 %1, %1, %0, 0x6543;" \
 			: "+r"(ss), "+r"(s) : ); \
 	}
 
@@ -550,7 +550,7 @@ __global__ void lyra2_gpu_hash_32_3(uint32_t threads, uint32_t startNounce, uint
     ss = s; \
 	{ \
 		asm(" shfl.sync.bfly.b32  %0, %0, 4, 0x181F, 0xffffffff;\n\t" \
-			" shf.r.clamp.b32  %1, %1, %0, 16;" \
+		    " prmt.b32 %1, %1, %0, 0x5432;" \
 			: "+r"(ss), "+r"(s) : ); \
 	}
 
