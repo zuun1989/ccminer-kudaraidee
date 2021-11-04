@@ -127,7 +127,7 @@ nvcc_FLAGS += $(JANSSON_INCLUDES) --ptxas-options="-v"
 	$(NVCC) $(nvcc_FLAGS) --maxrregcount=128 -o $@ -c $<
 
 lyra2/cuda_lyra2.o: lyra2/cuda_lyra2.cu
-	$(NVCC) $(nvcc_FLAGS) --maxrregcount=255 -o $@ -c $<
+	$(NVCC) $(nvcc_FLAGS) --maxrregcount=128 -lineinfo -o $@ -c $<
 
 Algo256/blake256.o: Algo256/blake256.cu
 	$(NVCC) $(nvcc_FLAGS) --maxrregcount=64 -o $@ -c $<
