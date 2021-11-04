@@ -39,9 +39,9 @@
      extern __shared__ uint2 shared_mem[];
      const int s0 = (Ncol / 2 * (row - BUF_COUNT) + col / 2) * memshift;
 
-     #pragma unroll
-     for (int j = 0; j < 3; j++)
-         res[j] = shared_mem[((s0 + j) * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x];
+	res[0] = shared_mem[((s0 + 0) * 8 + threadIdx.y) * 4 + threadIdx.x];
+	res[1] = shared_mem[((s0 + 1) * 8 + threadIdx.y) * 4 + threadIdx.x];
+	res[2] = shared_mem[((s0 + 2) * 8 + threadIdx.y) * 4 + threadIdx.x];
  }
  
  __device__ __forceinline__ void ST4SS(const int row, const int col, const uint2 data[3], const int thread, const int threads)
@@ -49,30 +49,30 @@
      extern __shared__ uint2 shared_mem[];
      const int s0 = (Ncol / 2 * (row - BUF_COUNT) + col / 2) * memshift;
  
-     #pragma unroll
-     for (int j = 0; j < 3; j++)
-         shared_mem[((s0 + j) * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x] = data[j];
+     shared_mem[((s0 + 0) *8 + threadIdx.y) * 4 + threadIdx.x] = data[0];
+	 shared_mem[((s0 + 1) *8 + threadIdx.y) * 4 + threadIdx.x] = data[1];
+	 shared_mem[((s0 + 2) *8 + threadIdx.y) * 4 + threadIdx.x] = data[2];
  }
 
- __device__ __forceinline__ void LD4S(uint2 res[3], const int row, const int col, const int thread, const int threads, uint2 pad[Nrow][Ncol / 2][3])
+ __device__ __forceinline__ void LD4S(uint2 res[3], const int row, const int col, const int thread, const int threads, uint2 pad[Ncol / 2][Nrow][3])
  {
      if ((col & 1) == 0) {
          LD4SS(res, row, col, thread, threads);
      } else {
-         res[0] = pad[row][col / 2][0];
-         res[1] = pad[row][col / 2][1];
-         res[2] = pad[row][col / 2][2];
+         res[0] = pad[col / 2][row][0];
+         res[1] = pad[col / 2][row][1];
+         res[2] = pad[col / 2][row][2];
      }
  }
 
- __device__ __forceinline__ void ST4S(const int row, const int col, const uint2 data[3], const int thread, const int threads, uint2 pad[Nrow][Ncol / 2][3])
+ __device__ __forceinline__ void ST4S(const int row, const int col, const uint2 data[3], const int thread, const int threads, uint2 pad[Ncol / 2][Nrow][3])
  {
      if ((col & 1) == 0) {
          ST4SS(row, col, data, thread, threads);
      } else {
-         pad[row][col / 2][0] = data[0];
-         pad[row][col / 2][1] = data[1];
-         pad[row][col / 2][2] = data[2];
+         pad[col / 2][row][0] = data[0];
+         pad[col / 2][row][1] = data[1];
+         pad[col / 2][row][2] = data[2];
      }
  }
 
@@ -198,13 +198,11 @@
  }
  
  static __device__ __forceinline__
- void reduceDuplex(uint2 state[4], uint32_t thread, const uint32_t threads, uint2 pad[Nrow][Ncol / 2][3])
+ void reduceDuplex(uint2 state[4], uint32_t thread, const uint32_t threads, uint2 pad[Ncol / 2][Nrow][3])
  {
      uint2 state1[3];
  
- #if __CUDA_ARCH__ > 500
- #pragma unroll
- #endif
+
      for (int i = 0; i < Nrow; i++)
      {
          ST4S(0, Ncol - i - 1, state, thread, threads, pad);
@@ -212,15 +210,16 @@
          round_lyra(state);
      }
  
-     #pragma unroll 4
      for (int i = 0; i < Nrow; i++)
      {
          LD4S(state1, 0, i, thread, threads, pad);
+		 #pragma unroll
          for (int j = 0; j < 3; j++)
              state[j] ^= state1[j];
  
          round_lyra(state);
  
+		 #pragma unroll
          for (int j = 0; j < 3; j++)
              state1[j] ^= state[j];
          ST4S(1, Ncol - i - 1, state1, thread, threads, pad);
@@ -228,15 +227,15 @@
  }
  
  static __device__ __forceinline__
- void reduceDuplexRowSetup(const int rowIn, const int rowInOut, const int rowOut, uint2 state[4], uint32_t thread, const uint32_t threads, uint2 pad[Nrow][Ncol / 2][3])
+ void reduceDuplexRowSetup(const int rowIn, const int rowInOut, const int rowOut, uint2 state[4], uint32_t thread, const uint32_t threads, uint2 pad[Ncol / 2][Nrow][3])
  {
      uint2 state1[3], state2[3];
- 
-     #pragma unroll 1
+
      for (int i = 0; i < Nrow; i++)
      {
          LD4S(state1, rowIn, i, thread, threads, pad);
          LD4S(state2, rowInOut, i, thread, threads, pad);
+		 #pragma unroll
          for (int j = 0; j < 3; j++)
              state[j] ^= state1[j] + state2[j];
  
@@ -270,7 +269,7 @@
  }
  
  static __device__ __forceinline__
- void reduceDuplexRowt(const int rowIn, const int rowInOut, const int rowOut, uint2 state[4], const uint32_t thread, const uint32_t threads, uint2 pad[Nrow][Ncol / 2][3])
+ void reduceDuplexRowt(const int rowIn, const int rowInOut, const int rowOut, uint2 state[4], const uint32_t thread, const uint32_t threads, uint2 pad[Ncol / 2][Nrow][3])
  {
      for (int i = 0; i < Nrow; i++)
      {
@@ -317,7 +316,7 @@
  }
  
  static __device__ __forceinline__
- void reduceDuplexRowt_8(const int rowInOut, uint2* state, const uint32_t thread, const uint32_t threads, uint2 pad[Nrow][Ncol / 2][3])
+ void reduceDuplexRowt_8(const int rowInOut, uint2* state, const uint32_t thread, const uint32_t threads, uint2 pad[Ncol / 2][Nrow][3])
  {
      uint2 state1[3], state2[3], last[3];
  
@@ -416,7 +415,7 @@
  
      if (thread < threads)
      {
-         uint2 pad[Nrow][Ncol / 2][3];
+         uint2 pad[Ncol / 2][Nrow][3];
          
          uint2 state[4];
          state[0] = __ldg(&DMatrix[(0 * threads + thread) * blockDim.x + threadIdx.x]);
