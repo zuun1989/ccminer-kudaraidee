@@ -201,6 +201,7 @@
  void reduceDuplex(uint2 state[4], uint32_t thread, const uint32_t threads, uint2 pad[Ncol / 2][Nrow][3])
  {
      uint2 state1[3];
+	 uint2 state2[3];
  
 
      for (int i = 0; i < Nrow; i++)
@@ -210,9 +211,10 @@
          round_lyra(state);
      }
  
-     for (int i = 0; i < Nrow; i++)
+     for (int i = 0; i < Nrow; i+=2)
      {
          LD4S(state1, 0, i, thread, threads, pad);
+		 LD4S(state2, 0, i + 1, thread, threads, pad);
 		 #pragma unroll
          for (int j = 0; j < 3; j++)
              state[j] ^= state1[j];
@@ -222,19 +224,32 @@
 		 #pragma unroll
          for (int j = 0; j < 3; j++)
              state1[j] ^= state[j];
+		
+			 #pragma unroll
+         for (int j = 0; j < 3; j++)
+             state[j] ^= state2[j];
+ 
+         round_lyra(state);
+ 
+		 #pragma unroll
+         for (int j = 0; j < 3; j++)
+             state2[j] ^= state[j];
          ST4S(1, Ncol - i - 1, state1, thread, threads, pad);
+		 ST4S(1, Ncol - (i + 1) - 1, state2, thread, threads, pad);
      }
  }
  
  static __device__ __forceinline__
  void reduceDuplexRowSetup(const int rowIn, const int rowInOut, const int rowOut, uint2 state[4], uint32_t thread, const uint32_t threads, uint2 pad[Ncol / 2][Nrow][3])
  {
-     uint2 state1[3], state2[3];
+     uint2 state1[3], state2[3], state3[3], state4[3];
 
-     for (int i = 0; i < Nrow; i++)
+     for (int i = 0; i < Nrow; i+=2)
      {
          LD4S(state1, rowIn, i, thread, threads, pad);
-         LD4S(state2, rowInOut, i, thread, threads, pad);
+		 LD4S(state2, rowInOut, i, thread, threads, pad);
+		 LD4S(state3, rowIn, i + 1, thread, threads, pad);
+		 LD4S(state4, rowInOut, i + 1, thread, threads, pad);
 		 #pragma unroll
          for (int j = 0; j < 3; j++)
              state[j] ^= state1[j] + state2[j];
@@ -265,18 +280,52 @@
          }
  
          ST4S(rowInOut, i, state2, thread, threads, pad);
+
+		//=====================================
+		 #pragma unroll
+         for (int j = 0; j < 3; j++)
+             state[j] ^= state3[j] + state4[j];
+ 
+         round_lyra(state);
+ 
+         #pragma unroll
+         for (int j = 0; j < 3; j++)
+             state3[j] ^= state[j];
+ 
+         ST4S(rowOut, Ncol - (i + 1) - 1, state3, thread, threads, pad);
+ 
+         // simultaneously receive data from preceding thread and send data to following thread
+         uint2 Data01 = state[0];
+         uint2 Data11 = state[1];
+         uint2 Data21 = state[2];
+         WarpShuffle3(Data01, Data11, Data21, threadIdx.x - 1, threadIdx.x - 1, threadIdx.x - 1, 4);
+ 
+         if (threadIdx.x == 0)
+         {
+             state4[0] ^= Data21;
+             state4[1] ^= Data01;
+             state4[2] ^= Data11;
+         } else {
+             state4[0] ^= Data01;
+             state4[1] ^= Data11;
+             state4[2] ^= Data21;
+         }
+ 
+         ST4S(rowInOut, (i + 1), state4, thread, threads, pad);
      }
  }
  
  static __device__ __forceinline__
  void reduceDuplexRowt(const int rowIn, const int rowInOut, const int rowOut, uint2 state[4], const uint32_t thread, const uint32_t threads, uint2 pad[Ncol / 2][Nrow][3])
  {
-     for (int i = 0; i < Nrow; i++)
+     for (int i = 0; i < Nrow; i+=2)
      {
-         uint2 state1[3], state2[3];
+         uint2 state1[3], state2[3], state3[3], state4[3];
  
          LD4S(state1, rowIn, i, thread, threads, pad);
          LD4S(state2, rowInOut, i, thread, threads, pad);
+		 LD4S(state3, rowIn, i + 1, thread, threads, pad);
+         LD4S(state4, rowInOut, i + 1, thread, threads, pad);
  
  #pragma unroll
          for (int j = 0; j < 3; j++)
@@ -312,13 +361,51 @@
              state1[j] ^= state[j];
  
          ST4S(rowOut, i, state1, thread, threads, pad);
+
+		 //======================================
+ 
+ 
+ #pragma unroll
+         for (int j = 0; j < 3; j++)
+             state[j] ^= state3[j] + state4[j];
+ 
+         round_lyra(state);
+ 
+         // simultaneously receive data from preceding thread and send data to following thread
+         uint2 Data01 = state[0];
+         uint2 Data11 = state[1];
+         uint2 Data21 = state[2];
+         WarpShuffle3(Data01, Data11, Data21, threadIdx.x - 1, threadIdx.x - 1, threadIdx.x - 1, 4);
+ 
+         if (threadIdx.x == 0)
+         {
+             state4[0] ^= Data21;
+             state4[1] ^= Data01;
+             state4[2] ^= Data11;
+         }
+         else
+         {
+             state4[0] ^= Data01;
+             state4[1] ^= Data11;
+             state4[2] ^= Data21;
+         }
+ 
+         ST4S(rowInOut, i + 1, state4, thread, threads, pad);
+ 
+         LD4S(state3, rowOut, i + 1, thread, threads, pad);
+ 
+ #pragma unroll
+         for (int j = 0; j < 3; j++)
+             state3[j] ^= state[j];
+ 
+         ST4S(rowOut, i + 1, state3, thread, threads, pad);
      }
  }
  
  static __device__ __forceinline__
  void reduceDuplexRowt_8(const int rowInOut, uint2* state, const uint32_t thread, const uint32_t threads, uint2 pad[Ncol / 2][Nrow][3])
  {
-     uint2 state1[3], state2[3], last[3];
+     uint2 state1[3], state2[3], state3[3], state4[3], last[3];
  
      LD4S(state1, 2, 0, thread, threads, pad);
      LD4S(last, rowInOut, 0, thread, threads, pad);
@@ -353,14 +440,33 @@
              last[j] ^= state[j];
      }
  
-     for (int i = 1; i < Nrow; i++)
+	 LD4S(state1, 2, 1, thread, threads, pad);
+	 LD4S(state2, rowInOut, 1, thread, threads, pad);
+
+	 #pragma unroll
+	 for (int j = 0; j < 3; j++)
+		 state[j] ^= state1[j] + state2[j];
+
+	 round_lyra(state);
+
+     for (int i = 2; i < Nrow; i+=2)
      {
          LD4S(state1, 2, i, thread, threads, pad);
          LD4S(state2, rowInOut, i, thread, threads, pad);
+		 LD4S(state3, 2, i + 1, thread, threads, pad);
+         LD4S(state4, rowInOut, i + 1, thread, threads, pad);
  
          #pragma unroll
          for (int j = 0; j < 3; j++)
              state[j] ^= state1[j] + state2[j];
+ 
+         round_lyra(state);
+
+		 //============================
+ 
+         #pragma unroll
+         for (int j = 0; j < 3; j++)
+             state[j] ^= state3[j] + state4[j];
  
          round_lyra(state);
      }
