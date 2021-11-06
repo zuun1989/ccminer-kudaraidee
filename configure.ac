@@ -1,4 +1,4 @@
-AC_INIT([ccminer-fancyIX], [0.1.0], [], [ccminer-fancyIX], [http://github.com/tpruvot/ccminer])
+AC_INIT([ccminer-fancyIX], [0.2.0], [], [ccminer-fancyIX], [https://github.com/fancyIX/ccminer])
 
 AC_PREREQ([2.59c])
 AC_CANONICAL_SYSTEM
