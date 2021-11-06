@@ -113,8 +113,10 @@ endif
 ccminer_LDADD += -lcuda
 
 nvcc_ARCH :=
+nvcc_ARCH += -gencode=arch=compute_86,code=\"sm_86,compute_86\"
 nvcc_ARCH += -gencode=arch=compute_75,code=\"sm_75,compute_75\"
-#nvcc_ARCH += -gencode=arch=compute_52,code=\"sm_52,compute_52\"
+nvcc_ARCH += -gencode=arch=compute_61,code=\"sm_61,compute_61\"
+nvcc_ARCH += -gencode=arch=compute_52,code=\"sm_52,compute_52\"
 #nvcc_ARCH += -gencode=arch=compute_50,code=\"sm_50,compute_50\"
 #nvcc_ARCH += -gencode=arch=compute_35,code=\"sm_35,compute_35\"
 #nvcc_ARCH += -gencode=arch=compute_30,code=\"sm_30,compute_30\"
@@ -127,7 +129,7 @@ nvcc_FLAGS += $(JANSSON_INCLUDES) --ptxas-options="-v"
 	$(NVCC) $(nvcc_FLAGS) --maxrregcount=128 -o $@ -c $<
 
 lyra2/cuda_lyra2.o: lyra2/cuda_lyra2.cu
-	$(NVCC) $(nvcc_FLAGS) --maxrregcount=128 -lineinfo -o $@ -c $<
+	$(NVCC) $(nvcc_FLAGS) --maxrregcount=128 -o $@ -c $<
 
 Algo256/blake256.o: Algo256/blake256.cu
 	$(NVCC) $(nvcc_FLAGS) --maxrregcount=64 -o $@ -c $<

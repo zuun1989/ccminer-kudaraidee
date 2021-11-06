@@ -1,4 +1,8 @@
 /**
+  * Lyra2 (v1) cuda implementation improved by fancyIX
+  * fancyIX@github 2021
+  */
+/**
  * Lyra2 (v1) cuda implementation based on djm34 work
  * tpruvot@github 2015, Nanashi 08/2016 (from 1.8-r2)
  */
