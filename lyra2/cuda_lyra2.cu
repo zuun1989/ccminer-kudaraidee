@@ -1,4 +1,5 @@
 /**
+ * fancyIX
  * Lyra2 (v1) cuda implementation based on djm34 work
  * tpruvot@github 2015, Nanashi 08/2016 (from 1.8-r2)
  */
@@ -39,9 +40,9 @@
      extern __shared__ uint2 shared_mem[];
      const int s0 = (Ncol / 2 * (row - BUF_COUNT) + col / 2) * memshift;
 
-	res[0] = shared_mem[((s0 + 0) * 8 + threadIdx.y) * 4 + threadIdx.x];
-	res[1] = shared_mem[((s0 + 1) * 8 + threadIdx.y) * 4 + threadIdx.x];
-	res[2] = shared_mem[((s0 + 2) * 8 + threadIdx.y) * 4 + threadIdx.x];
+	res[0] = shared_mem[((s0 + 0) * 16 + threadIdx.y) * 4 + threadIdx.x];
+	res[1] = shared_mem[((s0 + 1) * 16 + threadIdx.y) * 4 + threadIdx.x];
+	res[2] = shared_mem[((s0 + 2) * 16 + threadIdx.y) * 4 + threadIdx.x];
  }
  
  __device__ __forceinline__ void ST4SS(const int row, const int col, const uint2 data[3], const int thread, const int threads)
@@ -49,31 +50,23 @@
      extern __shared__ uint2 shared_mem[];
      const int s0 = (Ncol / 2 * (row - BUF_COUNT) + col / 2) * memshift;
  
-     shared_mem[((s0 + 0) *8 + threadIdx.y) * 4 + threadIdx.x] = data[0];
-	 shared_mem[((s0 + 1) *8 + threadIdx.y) * 4 + threadIdx.x] = data[1];
-	 shared_mem[((s0 + 2) *8 + threadIdx.y) * 4 + threadIdx.x] = data[2];
+     shared_mem[((s0 + 0) * 16 + threadIdx.y) * 4 + threadIdx.x] = data[0];
+	 shared_mem[((s0 + 1) * 16 + threadIdx.y) * 4 + threadIdx.x] = data[1];
+	 shared_mem[((s0 + 2) * 16 + threadIdx.y) * 4 + threadIdx.x] = data[2];
  }
 
- __device__ __forceinline__ void LD4S(uint2 res[3], const int row, const int col, const int thread, const int threads, uint2 pad[Ncol / 2][Nrow][3])
+ __device__ __forceinline__ void LD4SL(uint2 res[3], const int row, const int col, uint2 pad[Ncol / 2][Nrow][3])
  {
-     if ((col & 1) == 0) {
-         LD4SS(res, row, col, thread, threads);
-     } else {
          res[0] = pad[col / 2][row][0];
          res[1] = pad[col / 2][row][1];
          res[2] = pad[col / 2][row][2];
-     }
  }
 
- __device__ __forceinline__ void ST4S(const int row, const int col, const uint2 data[3], const int thread, const int threads, uint2 pad[Ncol / 2][Nrow][3])
+ __device__ __forceinline__ void ST4SL(const int row, const int col, const uint2 data[3], uint2 pad[Ncol / 2][Nrow][3])
  {
-     if ((col & 1) == 0) {
-         ST4SS(row, col, data, thread, threads);
-     } else {
          pad[col / 2][row][0] = data[0];
          pad[col / 2][row][1] = data[1];
          pad[col / 2][row][2] = data[2];
-     }
  }
 
  
@@ -206,15 +199,18 @@
 
      for (int i = 0; i < Nrow; i++)
      {
-         ST4S(0, Ncol - i - 1, state, thread, threads, pad);
+         if ((i & 1) == 1)
+         ST4SS(0, Ncol - i - 1, state, thread, threads);
+         else
+         ST4SL(0, Ncol - i - 1, state, pad);
  
          round_lyra(state);
      }
  
      for (int i = 0; i < Nrow; i+=2)
      {
-         LD4S(state1, 0, i, thread, threads, pad);
-		 LD4S(state2, 0, i + 1, thread, threads, pad);
+         LD4SS(state1, 0, i, thread, threads);
+		 LD4SL(state2, 0, i + 1, pad);
 		 #pragma unroll
          for (int j = 0; j < 3; j++)
              state[j] ^= state1[j];
@@ -234,8 +230,8 @@
 		 #pragma unroll
          for (int j = 0; j < 3; j++)
              state2[j] ^= state[j];
-         ST4S(1, Ncol - i - 1, state1, thread, threads, pad);
-		 ST4S(1, Ncol - (i + 1) - 1, state2, thread, threads, pad);
+         ST4SL(1, Ncol - i - 1, state1, pad);
+		 ST4SS(1, Ncol - (i + 1) - 1, state2, thread, threads);
      }
  }
  
@@ -246,10 +242,10 @@
 
      for (int i = 0; i < Nrow; i+=2)
      {
-         LD4S(state1, rowIn, i, thread, threads, pad);
-		 LD4S(state2, rowInOut, i, thread, threads, pad);
-		 LD4S(state3, rowIn, i + 1, thread, threads, pad);
-		 LD4S(state4, rowInOut, i + 1, thread, threads, pad);
+         LD4SS(state1, rowIn, i, thread, threads);
+		 LD4SS(state2, rowInOut, i, thread, threads);
+		 LD4SL(state3, rowIn, i + 1, pad);
+		 LD4SL(state4, rowInOut, i + 1, pad);
 		 #pragma unroll
          for (int j = 0; j < 3; j++)
              state[j] ^= state1[j] + state2[j];
@@ -260,7 +256,7 @@
          for (int j = 0; j < 3; j++)
              state1[j] ^= state[j];
  
-         ST4S(rowOut, Ncol - i - 1, state1, thread, threads, pad);
+         ST4SL(rowOut, Ncol - i - 1, state1, pad);
  
          // simultaneously receive data from preceding thread and send data to following thread
          uint2 Data0 = state[0];
@@ -279,7 +275,7 @@
              state2[2] ^= Data2;
          }
  
-         ST4S(rowInOut, i, state2, thread, threads, pad);
+         ST4SS(rowInOut, i, state2, thread, threads);
 
 		//=====================================
 		 #pragma unroll
@@ -292,7 +288,7 @@
          for (int j = 0; j < 3; j++)
              state3[j] ^= state[j];
  
-         ST4S(rowOut, Ncol - (i + 1) - 1, state3, thread, threads, pad);
+         ST4SS(rowOut, Ncol - (i + 1) - 1, state3, thread, threads);
  
          // simultaneously receive data from preceding thread and send data to following thread
          uint2 Data01 = state[0];
@@ -311,7 +307,7 @@
              state4[2] ^= Data21;
          }
  
-         ST4S(rowInOut, (i + 1), state4, thread, threads, pad);
+         ST4SL(rowInOut, (i + 1), state4, pad);
      }
  }
  
@@ -322,16 +318,16 @@
      {
          uint2 state1[3], state2[3], state3[3], state4[3];
  
-         LD4S(state1, rowIn, i, thread, threads, pad);
-         LD4S(state2, rowInOut, i, thread, threads, pad);
-		 LD4S(state3, rowIn, i + 1, thread, threads, pad);
-         LD4S(state4, rowInOut, i + 1, thread, threads, pad);
+         LD4SS(state1, rowIn, i, thread, threads);
+         LD4SS(state2, rowInOut, i, thread, threads);
+		 LD4SL(state3, rowIn, i + 1, pad);
+         LD4SL(state4, rowInOut, i + 1, pad);
  
  #pragma unroll
          for (int j = 0; j < 3; j++)
              state[j] ^= state1[j] + state2[j];
  
-         LD4S(state1, rowOut, i, thread, threads, pad);
+         LD4SS(state1, rowOut, i, thread, threads);
 
          round_lyra(state);
  
@@ -355,7 +351,7 @@
          }
 
         if (rowInOut != rowOut) {
-             ST4S(rowInOut, i, state2, thread, threads, pad);
+             ST4SS(rowInOut, i, state2, thread, threads);
                  #pragma unroll
             for (int j = 0; j < 3; j++)
                 state2[j] = state1[j];
@@ -365,7 +361,7 @@
         for (int j = 0; j < 3; j++)
             state2[j] ^= state[j];
 
-        ST4S(rowOut, i, state2, thread, threads, pad);
+        ST4SS(rowOut, i, state2, thread, threads);
 
 		 //======================================
  
@@ -374,7 +370,7 @@
          for (int j = 0; j < 3; j++)
              state[j] ^= state3[j] + state4[j];
  
-        LD4S(state3, rowOut, i + 1, thread, threads, pad);
+        LD4SL(state3, rowOut, i + 1, pad);
 
          round_lyra(state);
  
@@ -398,7 +394,7 @@
          }
 
          if (rowInOut != rowOut) {
-             ST4S(rowInOut, i + 1, state4, thread, threads, pad);
+             ST4SL(rowInOut, i + 1, state4, pad);
                  #pragma unroll
             for (int j = 0; j < 3; j++)
                 state4[j] = state3[j];
@@ -408,7 +404,7 @@
         for (int j = 0; j < 3; j++)
             state4[j] ^= state[j];
 
-        ST4S(rowOut, i + 1, state4, thread, threads, pad);
+        ST4SL(rowOut, i + 1, state4, pad);
      }
  }
  
@@ -417,8 +413,8 @@
  {
      uint2 state1[3], state2[3], state3[3], state4[3], last[3];
  
-     LD4S(state1, 2, 0, thread, threads, pad);
-     LD4S(last, rowInOut, 0, thread, threads, pad);
+     LD4SS(state1, 2, 0, thread, threads);
+     LD4SS(last, rowInOut, 0, thread, threads);
  
      #pragma unroll
      for (int j = 0; j < 3; j++)
@@ -450,8 +446,8 @@
              last[j] ^= state[j];
      }
  
-	 LD4S(state1, 2, 1, thread, threads, pad);
-	 LD4S(state2, rowInOut, 1, thread, threads, pad);
+	 LD4SL(state1, 2, 1, pad);
+	 LD4SL(state2, rowInOut, 1, pad);
 
 	 #pragma unroll
 	 for (int j = 0; j < 3; j++)
@@ -461,10 +457,10 @@
 
      for (int i = 2; i < Nrow; i+=2)
      {
-         LD4S(state1, 2, i, thread, threads, pad);
-         LD4S(state2, rowInOut, i, thread, threads, pad);
-		 LD4S(state3, 2, i + 1, thread, threads, pad);
-         LD4S(state4, rowInOut, i + 1, thread, threads, pad);
+         LD4SS(state1, 2, i, thread, threads);
+         LD4SS(state2, rowInOut, i, thread, threads);
+		 LD4SL(state3, 2, i + 1, pad);
+         LD4SL(state4, rowInOut, i + 1, pad);
  
          #pragma unroll
          for (int j = 0; j < 3; j++)
@@ -524,7 +520,7 @@
  }
  
  __global__
- __launch_bounds__(TPB52, 1)
+ __launch_bounds__(64, 1)
  void lyra2_gpu_hash_32_2(uint32_t threads, uint32_t startNounce, uint64_t *g_hash)
  {
      const uint32_t thread = blockDim.y * blockIdx.x + threadIdx.y;
@@ -546,21 +542,16 @@
          reduceDuplexRowSetup(4, 3, 5, state, thread, threads, pad);
          reduceDuplexRowSetup(5, 2, 6, state, thread, threads, pad);
          reduceDuplexRowSetup(6, 1, 7, state, thread, threads, pad);
- 
-         uint32_t rowa = WarpShuffle(state[0].x, 0, 4) & 7;
-         reduceDuplexRowt(7, rowa, 0, state, thread, threads, pad);
-         rowa = WarpShuffle(state[0].x, 0, 4) & 7;
-         reduceDuplexRowt(0, rowa, 3, state, thread, threads, pad);
-         rowa = WarpShuffle(state[0].x, 0, 4) & 7;
-         reduceDuplexRowt(3, rowa, 6, state, thread, threads, pad);
-         rowa = WarpShuffle(state[0].x, 0, 4) & 7;
-         reduceDuplexRowt(6, rowa, 1, state, thread, threads, pad);
-         rowa = WarpShuffle(state[0].x, 0, 4) & 7;
-         reduceDuplexRowt(1, rowa, 4, state, thread, threads, pad);
-         rowa = WarpShuffle(state[0].x, 0, 4) & 7;
-         reduceDuplexRowt(4, rowa, 7, state, thread, threads, pad);
-         rowa = WarpShuffle(state[0].x, 0, 4) & 7;
-         reduceDuplexRowt(7, rowa, 2, state, thread, threads, pad);
+
+         uint32_t rowa;
+         uint32_t row = 0;
+         uint32_t pre = 7;
+         for (int i = 0; i < 7; i++) {
+            rowa = WarpShuffle(state[0].x, 0, 4) & 7;
+            reduceDuplexRowt(pre, rowa, row, state, thread, threads, pad);
+            pre = row;
+            row = (row + 3) % 8;
+         }
          rowa = WarpShuffle(state[0].x, 0, 4) & 7;
          reduceDuplexRowt_8(rowa, state, thread, threads, pad);
  
@@ -623,8 +614,8 @@ void lyra2_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startNounce, uint6
 	else if (cuda_arch[dev_id] >= 500) tpb = TPB50;
 	else if (cuda_arch[dev_id] >= 200) tpb = TPB20;
 
-	dim3 grid1((threads * 4 + tpb - 1) / tpb);
-	dim3 block1(4, tpb >> 2);
+	dim3 grid1((threads * 4 + 64 - 1) / 64);
+	dim3 block1(4, 64 >> 2);
 
 	dim3 grid2((threads + 64 - 1) / 64);
 	dim3 block2(64);
@@ -636,7 +627,7 @@ void lyra2_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startNounce, uint6
 	{
 		lyra2_gpu_hash_32_1 <<< grid2, block2 >>> (threads, startNounce, (uint2*)d_hash);
 
-		lyra2_gpu_hash_32_2 <<< grid1, block1, 12 * (8 - 0) * sizeof(uint2) * tpb >>> (threads, startNounce, d_hash);
+		lyra2_gpu_hash_32_2 <<< grid1, block1, 12 * (8 - 0) * sizeof(uint2) * 64 >>> (threads, startNounce, d_hash);
 
 		lyra2_gpu_hash_32_3 <<< grid2, block2 >>> (threads, startNounce, (uint2*)d_hash);
 	}
