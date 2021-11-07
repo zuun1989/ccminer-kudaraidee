@@ -1,8 +1,4 @@
 /**
-  * Lyra2 (v1) cuda implementation improved by fancyIX
-  * fancyIX@github 2021
-  */
-/**
  * Lyra2 (v1) cuda implementation based on djm34 work
  * tpruvot@github 2015, Nanashi 08/2016 (from 1.8-r2)
  */
@@ -217,8 +213,8 @@
  
      for (int i = 0; i < Nrow; i+=2)
      {
-         LD4S(state2, 0, i + 1, thread, threads, pad);
          LD4S(state1, 0, i, thread, threads, pad);
+		 LD4S(state2, 0, i + 1, thread, threads, pad);
 		 #pragma unroll
          for (int j = 0; j < 3; j++)
              state[j] ^= state1[j];
@@ -250,10 +246,10 @@
 
      for (int i = 0; i < Nrow; i+=2)
      {
-		 LD4S(state3, rowIn, i + 1, thread, threads, pad);
-		 LD4S(state4, rowInOut, i + 1, thread, threads, pad);
          LD4S(state1, rowIn, i, thread, threads, pad);
 		 LD4S(state2, rowInOut, i, thread, threads, pad);
+		 LD4S(state3, rowIn, i + 1, thread, threads, pad);
+		 LD4S(state4, rowInOut, i + 1, thread, threads, pad);
 		 #pragma unroll
          for (int j = 0; j < 3; j++)
              state[j] ^= state1[j] + state2[j];
@@ -320,22 +316,23 @@
  }
  
  static __device__ __forceinline__
- void reduceDuplexRowt(const int rowIn, const int rowInOut, const int rowOut, const int rowOutPP, uint2 state[4], uint2 stateT[3], uint2 stateTT[3], const uint32_t thread, const uint32_t threads, uint2 pad[Ncol / 2][Nrow][3])
+ void reduceDuplexRowt(const int rowIn, const int rowInOut, const int rowOut, uint2 state[4], const uint32_t thread, const uint32_t threads, uint2 pad[Ncol / 2][Nrow][3])
  {
-     int rowOutP = rowOutPP;
      for (int i = 0; i < Nrow; i+=2)
      {
          uint2 state1[3], state2[3], state3[3], state4[3];
  
- 		 LD4S(state3, rowIn, i + 1, thread, threads, pad);
-         LD4S(state4, rowInOut, i + 1, thread, threads, pad);
          LD4S(state1, rowIn, i, thread, threads, pad);
          LD4S(state2, rowInOut, i, thread, threads, pad);
+		 LD4S(state3, rowIn, i + 1, thread, threads, pad);
+         LD4S(state4, rowInOut, i + 1, thread, threads, pad);
  
  #pragma unroll
          for (int j = 0; j < 3; j++)
              state[j] ^= state1[j] + state2[j];
  
+         LD4S(state1, rowOut, i, thread, threads, pad);
+
          round_lyra(state);
  
          // simultaneously receive data from preceding thread and send data to following thread
@@ -356,16 +353,19 @@
              state2[1] ^= Data1;
              state2[2] ^= Data2;
          }
- 
-         ST4S(rowInOut, i, state2, thread, threads, pad);
- 
-         LD4S(state1, rowOut, i, thread, threads, pad);
- 
- #pragma unroll
-         for (int j = 0; j < 3; j++)
-             state1[j] ^= state[j];
- 
-         ST4S(rowOut, i, state1, thread, threads, pad);
+
+        if (rowInOut != rowOut) {
+             ST4S(rowInOut, i, state2, thread, threads, pad);
+                 #pragma unroll
+            for (int j = 0; j < 3; j++)
+                state2[j] = state1[j];
+         }
+
+#pragma unroll
+        for (int j = 0; j < 3; j++)
+            state2[j] ^= state[j];
+
+        ST4S(rowOut, i, state2, thread, threads, pad);
 
 		 //======================================
  
@@ -374,6 +374,8 @@
          for (int j = 0; j < 3; j++)
              state[j] ^= state3[j] + state4[j];
  
+        LD4S(state3, rowOut, i + 1, thread, threads, pad);
+
          round_lyra(state);
  
          // simultaneously receive data from preceding thread and send data to following thread
@@ -394,26 +396,24 @@
              state4[1] ^= Data11;
              state4[2] ^= Data21;
          }
- 
-         ST4S(rowInOut, i + 1, state4, thread, threads, pad);
-        if (rowOutP >= 0) {
-        #pragma unroll
+
+         if (rowInOut != rowOut) {
+             ST4S(rowInOut, i + 1, state4, thread, threads, pad);
+                 #pragma unroll
             for (int j = 0; j < 3; j++)
-                stateT[j] ^= stateTT[j];
-    
-            ST4S(rowOutP, (Ncol + i - 1) % Ncol, stateT, thread, threads, pad);
-        }
-         LD4S(stateT, rowOut, i + 1, thread, threads, pad);
- 
-  #pragma unroll
-         for (int j = 0; j < 3; j++)
-             stateTT[j] = state[j];
-        rowOutP = rowOut;
+                state4[j] = state3[j];
+         }
+
+#pragma unroll
+        for (int j = 0; j < 3; j++)
+            state4[j] ^= state[j];
+
+        ST4S(rowOut, i + 1, state4, thread, threads, pad);
      }
  }
  
  static __device__ __forceinline__
- void reduceDuplexRowt_8(const int rowInOut, const int rowOutP, uint2* state, uint2 stateT[3], uint2 stateTT[3], const uint32_t thread, const uint32_t threads, uint2 pad[Ncol / 2][Nrow][3])
+ void reduceDuplexRowt_8(const int rowInOut, uint2* state, const uint32_t thread, const uint32_t threads, uint2 pad[Ncol / 2][Nrow][3])
  {
      uint2 state1[3], state2[3], state3[3], state4[3], last[3];
  
@@ -432,12 +432,6 @@
      uint2 Data2 = state[2];
      WarpShuffle3(Data0, Data1, Data2, threadIdx.x - 1, threadIdx.x - 1, threadIdx.x - 1, 4);
  
-#pragma unroll
-    for (int j = 0; j < 3; j++)
-        stateT[j] ^= stateTT[j];
-
-    ST4S(rowOutP, Ncol - 1, stateT, thread, threads, pad);
-
      if (threadIdx.x == 0)
      {
          last[0] ^= Data2;
@@ -467,10 +461,10 @@
 
      for (int i = 2; i < Nrow; i+=2)
      {
-		 LD4S(state3, 2, i + 1, thread, threads, pad);
-         LD4S(state4, rowInOut, i + 1, thread, threads, pad);
          LD4S(state1, 2, i, thread, threads, pad);
          LD4S(state2, rowInOut, i, thread, threads, pad);
+		 LD4S(state3, 2, i + 1, thread, threads, pad);
+         LD4S(state4, rowInOut, i + 1, thread, threads, pad);
  
          #pragma unroll
          for (int j = 0; j < 3; j++)
@@ -540,8 +534,6 @@
          uint2 pad[Ncol / 2][Nrow][3];
          
          uint2 state[4];
-         uint2 stateT[3];
-         uint2 stateTT[3];
          state[0] = __ldg(&DMatrix[(0 * threads + thread) * blockDim.x + threadIdx.x]);
          state[1] = __ldg(&DMatrix[(1 * threads + thread) * blockDim.x + threadIdx.x]);
          state[2] = __ldg(&DMatrix[(2 * threads + thread) * blockDim.x + threadIdx.x]);
@@ -556,21 +548,21 @@
          reduceDuplexRowSetup(6, 1, 7, state, thread, threads, pad);
  
          uint32_t rowa = WarpShuffle(state[0].x, 0, 4) & 7;
-         reduceDuplexRowt(7, rowa, 0, -1, state, stateT, stateTT, thread, threads, pad);
+         reduceDuplexRowt(7, rowa, 0, state, thread, threads, pad);
          rowa = WarpShuffle(state[0].x, 0, 4) & 7;
-         reduceDuplexRowt(0, rowa, 3, 0, state, stateT, stateTT, thread, threads, pad);
+         reduceDuplexRowt(0, rowa, 3, state, thread, threads, pad);
          rowa = WarpShuffle(state[0].x, 0, 4) & 7;
-         reduceDuplexRowt(3, rowa, 6, 3, state, stateT, stateTT, thread, threads, pad);
+         reduceDuplexRowt(3, rowa, 6, state, thread, threads, pad);
          rowa = WarpShuffle(state[0].x, 0, 4) & 7;
-         reduceDuplexRowt(6, rowa, 1, 6, state, stateT, stateTT, thread, threads, pad);
+         reduceDuplexRowt(6, rowa, 1, state, thread, threads, pad);
          rowa = WarpShuffle(state[0].x, 0, 4) & 7;
-         reduceDuplexRowt(1, rowa, 4, 1, state, stateT, stateTT, thread, threads, pad);
+         reduceDuplexRowt(1, rowa, 4, state, thread, threads, pad);
          rowa = WarpShuffle(state[0].x, 0, 4) & 7;
-         reduceDuplexRowt(4, rowa, 7, 4, state, stateT, stateTT, thread, threads, pad);
+         reduceDuplexRowt(4, rowa, 7, state, thread, threads, pad);
          rowa = WarpShuffle(state[0].x, 0, 4) & 7;
-         reduceDuplexRowt(7, rowa, 2, 7, state, stateT, stateTT, thread, threads, pad);
+         reduceDuplexRowt(7, rowa, 2, state, thread, threads, pad);
          rowa = WarpShuffle(state[0].x, 0, 4) & 7;
-         reduceDuplexRowt_8(rowa, 2, state, stateT, stateTT, thread, threads, pad);
+         reduceDuplexRowt_8(rowa, state, thread, threads, pad);
  
          DMatrix[(0 * threads + thread) * blockDim.x + threadIdx.x] = state[0];
          DMatrix[(1 * threads + thread) * blockDim.x + threadIdx.x] = state[1];
