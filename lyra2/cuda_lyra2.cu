@@ -71,14 +71,14 @@
 
  __device__ __forceinline__ void LD4SG(uint2 res[3], const int row, const int col, const int thread, const int threads, const int offset, uint64_t *GPad, uint64_t *GPadO)
  {
-    ulong *p = (ulong *) ((GPad + 2 * (offset + (((col /2) * 64 + row * 64 * (Ncol / 2))))));
-    ulong *q = (ulong *) (GPadO + offset + (((col /2) * 64 + row * 64 * (Ncol / 2))));
-     /*uint4 tmp = __ldg(p);
+    ulong *p = (ulong *) ((GPad + offset + 2 * (threadIdx.x + 4 * threadIdx.y + (((col /2) * 64 + row * 64 * (Ncol / 2))))));
+    ulong *q = (ulong *) (GPadO + offset + (threadIdx.x + 4 * threadIdx.y + ((col /2) * 64 + row * 64 * (Ncol / 2))));
+     /*uint4 tmp = __ldg((uint4 *)p);
      res[0] = make_uint2(tmp.x, tmp.y);
      res[1] = make_uint2(tmp.z, tmp.w);
-     res[2] = __ldg(q);*/
+     res[2] = __ldg((uint2 *)q);*/
      ulong * r = (ulong *)(&res[0]);
-     asm ("ld.global.u64 %2, [%4];\n\tld.global.v2.u64 {%0, %1}, [%3];"
+     asm ("ld.global.ca.v2.u64 {%0, %1}, [%3];\n\tld.global.ca.u64 %2, [%4];"
      : "=l"(r[0]), "=l"(r[1]), "=l"(r[2]) : "l"(p), "l"(q) : "memory");
  }
 
@@ -87,8 +87,8 @@
      ulong a = MAKE_ULONGLONG(data[0].x, data[0].y);
      ulong b = MAKE_ULONGLONG(data[1].x, data[1].y);
      ulong c = MAKE_ULONGLONG(data[2].x, data[2].y);
-     ulong *p = (ulong *) ((GPad + 2 * (offset + (((col /2) * 64 + row * 64 * (Ncol / 2))))));
-     ulong *q = (ulong *) (GPadO + offset + (((col /2) * 64 + row * 64 * (Ncol / 2))));
+     ulong *p = (ulong *) ((GPad + offset + 2 * (threadIdx.x + 4 * threadIdx.y + (((col /2) * 64 + row * 64 * (Ncol / 2))))));
+     ulong *q = (ulong *) (GPadO + offset + (threadIdx.x + 4 * threadIdx.y + ((col /2) * 64 + row * 64 * (Ncol / 2))));
      asm ("st.global.v2.u64 [%0], {%2, %3};\n\t st.global.u64 [%1], %4;\n\t" :: "l"(p), "l"(q), "l"(a), "l"(b), "l"(c): "memory");
     //((uint4*)GPad)[offset + ((threadIdx.x + 4 * threadIdx.y + (col /2) * 64 + row * 64 * (Ncol / 2)))] = tmp;
     //GPad[offset + ((threadIdx.x + 4 * threadIdx.y + (col /2) * 64 + row * 64 * (Ncol / 2))) + 64 * Nrow * (Ncol / 2) * 2] = data[2];
@@ -511,7 +511,7 @@
  void reduceDuplex_high_end(uint2 state[4], uint32_t thread, const uint32_t threads, uint64_t *g_pad)
  {
 
-    const int offset = blockIdx.x * 64 * Nrow * (Ncol / 2) * 3 + threadIdx.x + 4 * threadIdx.y;
+    const int offset = blockIdx.x * 64 * Nrow * (Ncol / 2) * 3;
     uint64_t *g_pado = g_pad + 64 * Nrow * (Ncol / 2) * 2;
 
      uint2 state1[3];
@@ -559,7 +559,7 @@
  static __device__ __forceinline__
  void reduceDuplexRowSetup_high_end(const int rowIn, const int rowInOut, const int rowOut, uint2 state[4], uint32_t thread, const uint32_t threads, uint64_t *g_pad)
  {
-     const int offset = blockIdx.x * 64 * Nrow * (Ncol / 2) * 3 + threadIdx.x + 4 * threadIdx.y;
+     const int offset = blockIdx.x * 64 * Nrow * (Ncol / 2) * 3;
      uint64_t *g_pado = g_pad + 64 * Nrow * (Ncol / 2) * 2;
 
      uint2 state1[3], state2[3], state3[3], state4[3];
@@ -638,7 +638,7 @@
  static __device__ __forceinline__
  void reduceDuplexRowt_high_end(const int rowIn, const int rowInOut, const int rowOut, uint2 state[4], const uint32_t thread, const uint32_t threads, uint64_t *g_pad)
  {
-     const int offset = blockIdx.x * 64 * Nrow * (Ncol / 2) * 3 + threadIdx.x + 4 * threadIdx.y;
+     const int offset = blockIdx.x * 64 * Nrow * (Ncol / 2) * 3;
      uint64_t *g_pado = g_pad + 64 * Nrow * (Ncol / 2) * 2;
 
      uint2 state3[3], state4[3], state5[3];
@@ -753,7 +753,7 @@
  static __device__ __forceinline__
  void reduceDuplexRowt_8_high_end(const int rowInOut, uint2* state, const uint32_t thread, const uint32_t threads, uint64_t *g_pad)
  {
-     const int offset = blockIdx.x * 64 * Nrow * (Ncol / 2) * 3 + threadIdx.x + 4 * threadIdx.y;
+     const int offset = blockIdx.x * 64 * Nrow * (Ncol / 2) * 3;
      uint64_t *g_pado = g_pad + 64 * Nrow * (Ncol / 2) * 2;
 
      uint2 state1[3], state2[3], state3[3], state4[3], last[3];
