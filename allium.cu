@@ -110,7 +110,13 @@ extern "C" int scanhash_allium(int thr_id, struct work* work, uint32_t max_nonce
 		if (strstr(props.name, "750 Ti")) gtx750ti = true;
 		else gtx750ti = false;
 
-		if (strstr(props.name, "80")) high_end = true;
+		if (strstr(props.name, "1080") ||
+		    strstr(props.name, "1070") ||
+		    strstr(props.name, "2080") ||
+		    strstr(props.name, "2070") ||
+		    strstr(props.name, "3080") ||
+		    strstr(props.name, "3070") ||
+		    strstr(props.name, "3060")) high_end = true;
 		else high_end = false;
 
 		gpulog(LOG_INFO, thr_id, "Intensity set to %g, %u cuda threads", throughput2intensity(throughput), throughput);
