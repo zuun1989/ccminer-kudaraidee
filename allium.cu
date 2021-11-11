@@ -12,6 +12,7 @@ extern "C" {
 
 static uint64_t* d_hash[MAX_GPUS];
 static uint64_t* d_matrix[MAX_GPUS];
+static uint64_t* g_pad[MAX_GPUS];
 
 extern void blake256_cpu_init(int thr_id, uint32_t threads);
 extern void blake256_cpu_setBlock_80(uint32_t *pdata);
@@ -27,7 +28,9 @@ extern void skein256_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startNon
 extern void skein256_cpu_init(int thr_id, uint32_t threads);
 
 extern void lyra2_cpu_init(int thr_id, uint32_t threads, uint64_t *d_matrix);
-extern void lyra2_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startNonce, uint64_t *d_outputHash, bool gtx750ti);
+extern void lyra2_cpu_init_high_end(int thr_id, uint32_t threads, uint64_t *g_pad);
+extern void lyra2_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startNonce, uint64_t *d_outputHash, bool gtx750ti, bool high_end);
+extern void lyra2_cpu_hash_32_fancyIX(int thr_id, uint32_t threads, uint32_t startNounce, uint64_t *d_hash, uint64_t *g_pad, bool gtx750ti, bool high_end);
 
 extern void groestl256_cpu_init(int thr_id, uint32_t threads);
 extern void groestl256_cpu_free(int thr_id);
@@ -89,6 +92,7 @@ extern "C" int scanhash_allium(int thr_id, struct work* work, uint32_t max_nonce
 		ptarget[7] = 0x0400;
 
 	static __thread bool gtx750ti;
+	static __thread bool high_end;
 	if (!init[thr_id])
 	{
 		int dev_id = device_map[thr_id];
@@ -106,6 +110,15 @@ extern "C" int scanhash_allium(int thr_id, struct work* work, uint32_t max_nonce
 		if (strstr(props.name, "750 Ti")) gtx750ti = true;
 		else gtx750ti = false;
 
+		if (strstr(props.name, "1080") ||
+		    strstr(props.name, "1070") ||
+		    strstr(props.name, "2080") ||
+		    strstr(props.name, "2070") ||
+		    strstr(props.name, "3080") ||
+		    strstr(props.name, "3070") ||
+		    strstr(props.name, "3060")) high_end = true;
+		else high_end = false;
+
 		gpulog(LOG_INFO, thr_id, "Intensity set to %g, %u cuda threads", throughput2intensity(throughput), throughput);
 
 		blake256_cpu_init(thr_id, throughput);
@@ -119,6 +132,11 @@ extern "C" int scanhash_allium(int thr_id, struct work* work, uint32_t max_nonce
 			size_t matrix_sz = device_sm[dev_id] > 500 ? sizeof(uint64_t) * 4 * 4 : sizeof(uint64_t) * 8 * 8 * 3 * 4;
 			CUDA_SAFE_CALL(cudaMalloc(&d_matrix[thr_id], matrix_sz * throughput));
 			lyra2_cpu_init(thr_id, throughput, d_matrix[thr_id]);
+			if (high_end) {
+				size_t pad_sz = sizeof(uint64_t) * 8 * 8 * 3 * 4;
+				CUDA_SAFE_CALL(cudaMalloc(&g_pad[thr_id], pad_sz * throughput));
+				lyra2_cpu_init_high_end(thr_id, throughput, g_pad[thr_id]);
+			}
 		}
 
 		CUDA_SAFE_CALL(cudaMalloc(&d_hash[thr_id], (size_t)32 * throughput));
@@ -138,11 +156,11 @@ extern "C" int scanhash_allium(int thr_id, struct work* work, uint32_t max_nonce
 
 		blakeKeccak256_cpu_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id], order++);
 
-		lyra2_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id], gtx750ti);
+		lyra2_cpu_hash_32_fancyIX(thr_id, throughput, pdata[19], d_hash[thr_id], g_pad[thr_id], gtx750ti, high_end);
 
 		cubehash256_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id], order++);
 
-		lyra2_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id], gtx750ti);
+		lyra2_cpu_hash_32_fancyIX(thr_id, throughput, pdata[19], d_hash[thr_id], g_pad[thr_id], gtx750ti, high_end);
 
 		skein256_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id], order++);
 
@@ -204,6 +222,9 @@ extern "C" void free_allium(int thr_id)
 
 	cudaFree(d_hash[thr_id]);
 	cudaFree(d_matrix[thr_id]);
+	if (g_pad[thr_id] != NULL) {
+		cudaFree(g_pad[thr_id]);
+	}
 
 	//keccak256_sm3_free(thr_id);
 	groestl256_cpu_free(thr_id);
