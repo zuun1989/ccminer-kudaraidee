@@ -71,24 +71,24 @@
 
  __device__ __forceinline__ void LD4SG(uint2 res[3], const int row, const int col, const int thread, const int threads, const int offset, uint64_t *GPad, uint64_t *GPadO)
  {
-    ulong *p = (ulong *) ((GPad + offset + 2 * (threadIdx.x + 4 * threadIdx.y + (((col /2) * 64 + row * 64 * (Ncol / 2))))));
-    ulong *q = (ulong *) (GPadO + offset + (threadIdx.x + 4 * threadIdx.y + ((col /2) * 64 + row * 64 * (Ncol / 2))));
+    uint64_t *p = (uint64_t *) ((GPad + offset + 2 * (threadIdx.x + 4 * threadIdx.y + (((col /2) * 64 + row * 64 * (Ncol / 2))))));
+    uint64_t *q = (uint64_t *) (GPadO + offset + (threadIdx.x + 4 * threadIdx.y + ((col /2) * 64 + row * 64 * (Ncol / 2))));
      /*uint4 tmp = __ldg((uint4 *)p);
      res[0] = make_uint2(tmp.x, tmp.y);
      res[1] = make_uint2(tmp.z, tmp.w);
      res[2] = __ldg((uint2 *)q);*/
-     ulong * r = (ulong *)(&res[0]);
+     uint64_t * r = (uint64_t *)(&res[0]);
      asm ("ld.global.ca.v2.u64 {%0, %1}, [%3];\n\tld.global.ca.u64 %2, [%4];"
      : "=l"(r[0]), "=l"(r[1]), "=l"(r[2]) : "l"(p), "l"(q) : "memory");
  }
 
  __device__ __forceinline__ void ST4SG(const int row, const int col, const uint2 data[3], const int thread, const int threads, const int offset, uint64_t *GPad, uint64_t *GPadO)
  {
-     ulong a = MAKE_ULONGLONG(data[0].x, data[0].y);
-     ulong b = MAKE_ULONGLONG(data[1].x, data[1].y);
-     ulong c = MAKE_ULONGLONG(data[2].x, data[2].y);
-     ulong *p = (ulong *) ((GPad + offset + 2 * (threadIdx.x + 4 * threadIdx.y + (((col /2) * 64 + row * 64 * (Ncol / 2))))));
-     ulong *q = (ulong *) (GPadO + offset + (threadIdx.x + 4 * threadIdx.y + ((col /2) * 64 + row * 64 * (Ncol / 2))));
+     uint64_t a = MAKE_ULONGLONG(data[0].x, data[0].y);
+     uint64_t b = MAKE_ULONGLONG(data[1].x, data[1].y);
+     uint64_t c = MAKE_ULONGLONG(data[2].x, data[2].y);
+     uint64_t *p = (uint64_t *) ((GPad + offset + 2 * (threadIdx.x + 4 * threadIdx.y + (((col /2) * 64 + row * 64 * (Ncol / 2))))));
+     uint64_t *q = (uint64_t *) (GPadO + offset + (threadIdx.x + 4 * threadIdx.y + ((col /2) * 64 + row * 64 * (Ncol / 2))));
      asm ("st.global.v2.u64 [%0], {%2, %3};\n\t st.global.u64 [%1], %4;\n\t" :: "l"(p), "l"(q), "l"(a), "l"(b), "l"(c): "memory");
     //((uint4*)GPad)[offset + ((threadIdx.x + 4 * threadIdx.y + (col /2) * 64 + row * 64 * (Ncol / 2)))] = tmp;
     //GPad[offset + ((threadIdx.x + 4 * threadIdx.y + (col /2) * 64 + row * 64 * (Ncol / 2))) + 64 * Nrow * (Ncol / 2) * 2] = data[2];

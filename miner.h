@@ -283,7 +283,6 @@ extern int scanhash_cryptolight(int thr_id, struct work* work, uint32_t max_nonc
 extern int scanhash_cryptonight(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_decred(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_deep(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
-extern int scanhash_equihash(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_keccak256(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_fresh(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_fugue256(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
@@ -329,11 +328,6 @@ extern int scanhash_x15(int thr_id, struct work* work, uint32_t max_nonce, unsig
 extern int scanhash_x17(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_zr5(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
 
-extern int scanhash_scrypt(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done,
-	unsigned char *scratchbuf, struct timeval *tv_start, struct timeval *tv_end);
-extern int scanhash_scrypt_jane(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done,
-	unsigned char *scratchbuf, struct timeval *tv_start, struct timeval *tv_end);
-
 /* free device allocated memory per algo */
 void algo_free_all(int thr_id);
 
@@ -348,7 +342,6 @@ extern void free_cryptolight(int thr_id);
 extern void free_cryptonight(int thr_id);
 extern void free_decred(int thr_id);
 extern void free_deep(int thr_id);
-extern void free_equihash(int thr_id);
 extern void free_keccak256(int thr_id);
 extern void free_fresh(int thr_id);
 extern void free_fugue256(int thr_id);
@@ -393,10 +386,6 @@ extern void free_x14(int thr_id);
 extern void free_x15(int thr_id);
 extern void free_x17(int thr_id);
 extern void free_zr5(int thr_id);
-//extern void free_sha256d(int thr_id);
-extern void free_scrypt(int thr_id);
-extern void free_scrypt_jane(int thr_id);
-
 /* api related */
 void *api_thread(void *userdata);
 void api_set_throughput(int thr_id, uint32_t throughput);

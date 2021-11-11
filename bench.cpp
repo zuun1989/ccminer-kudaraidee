@@ -60,7 +60,6 @@ void algo_free_all(int thr_id)
 	free_cryptonight(thr_id);
 	free_decred(thr_id);
 	free_deep(thr_id);
-	free_equihash(thr_id);
 	free_keccak256(thr_id);
 	free_fresh(thr_id);
 	free_fugue256(thr_id);
@@ -105,8 +104,6 @@ void algo_free_all(int thr_id)
 	free_x15(thr_id);
 	free_x17(thr_id);
 	free_zr5(thr_id);
-	free_scrypt(thr_id);
-	free_scrypt_jane(thr_id);
 	free_timetravel(thr_id);
 	free_tribus(thr_id);
 	free_bitcore(thr_id);

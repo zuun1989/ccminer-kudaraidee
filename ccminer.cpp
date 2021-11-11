@@ -2350,9 +2350,6 @@ static void *miner_thread(void *userdata)
 		case ALGO_DEEP:
 			rc = scanhash_deep(thr_id, &work, max_nonce, &hashes_done);
 			break;
-		case ALGO_EQUIHASH:
-			rc = scanhash_equihash(thr_id, &work, max_nonce, &hashes_done);
-			break;
 		case ALGO_FRESH:
 			rc = scanhash_fresh(thr_id, &work, max_nonce, &hashes_done);
 			break;
@@ -2432,14 +2429,6 @@ static void *miner_thread(void *userdata)
 			break;
 		case ALGO_POLYTIMOS:
 			rc = scanhash_polytimos(thr_id, &work, max_nonce, &hashes_done);
-			break;
-		case ALGO_SCRYPT:
-			rc = scanhash_scrypt(thr_id, &work, max_nonce, &hashes_done,
-				NULL, &tv_start, &tv_end);
-			break;
-		case ALGO_SCRYPT_JANE:
-			rc = scanhash_scrypt_jane(thr_id, &work, max_nonce, &hashes_done,
-				NULL, &tv_start, &tv_end);
 			break;
 		case ALGO_SKEIN:
 			rc = scanhash_skeincoin(thr_id, &work, max_nonce, &hashes_done);

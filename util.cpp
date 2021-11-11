@@ -2257,13 +2257,7 @@ void print_hash_tests(void)
 
 	qubithash(&hash[0], &buf[0]);
 	printpfx("qubit", hash);
-
-	scrypthash(&hash[0], &buf[0]);
-	printpfx("scrypt", hash);
-
-	scryptjane_hash(&hash[0], &buf[0]);
-	printpfx("scrypt-jane", hash);
-
+	
 	sha256d_hash(&hash[0], &buf[0]);
 	printpfx("sha256d", hash);
 
