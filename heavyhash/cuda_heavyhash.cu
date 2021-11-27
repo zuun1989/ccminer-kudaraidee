@@ -107,7 +107,7 @@ void heavyhash_gpu_hash(const uint32_t threads, const uint32_t startNonce, uint3
         for (int i = 0; i < 19; i++) {
             pdata[i] = c_data[i];
         }
-        pdata[19] = nonce;
+        pdata[19] = cuda_swab32(nonce);
 
         uint8_t hash_first[32];
         uint8_t hash_second[32];
@@ -200,6 +200,9 @@ void heavyhash_cpu_setTarget(const void *pTargetIn)
 __host__
 uint32_t heavyhash_cpu_hash(int thr_id, uint32_t threads, uint32_t startNounce, int order)
 {
+    cudaMalloc(&d_GNonces[thr_id], 2*sizeof(uint32_t));
+	cudaMallocHost(&h_GNonces[thr_id], 2*sizeof(uint32_t));
+
 	uint32_t result = UINT32_MAX;
 	cudaMemset(d_GNonces[thr_id], 0xff, 2*sizeof(uint32_t));
 	const uint32_t threadsperblock = 256;
@@ -218,6 +221,17 @@ uint32_t heavyhash_cpu_hash(int thr_id, uint32_t threads, uint32_t startNounce, 
 	result = *h_GNonces[thr_id];
 
 	return result;
+}
+
+__host__
+uint32_t heavyhash_getSecNonce(int thr_id, int num)
+{
+	uint32_t results[2];
+	memset(results, 0xFF, sizeof(results));
+	cudaMemcpy(results, d_GNonces[thr_id], sizeof(results), cudaMemcpyDeviceToHost);
+	if (results[1] == results[0])
+		return UINT32_MAX;
+	return results[num];
 }
 
 __host__

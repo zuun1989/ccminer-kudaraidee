@@ -2416,6 +2416,9 @@ static void *miner_thread(void *userdata)
 		case ALGO_ALLIUM:
 			rc = scanhash_allium(thr_id, &work, max_nonce, &hashes_done);
 			break;
+		case ALGO_HEAVYHASH:
+			rc = scanhash_heavyhash(thr_id, &work, max_nonce, &hashes_done);
+			break;
 		case ALGO_NEOSCRYPT:
 			rc = scanhash_neoscrypt(thr_id, &work, max_nonce, &hashes_done);
 			break;

@@ -9,6 +9,7 @@ extern "C" {
 extern void heavyhash_cpu_setBlock_80(uint32_t *pdata);
 extern void heavyhash_cpu_setTarget(const void *pTargetIn);
 extern uint32_t heavyhash_cpu_hash(int thr_id, uint32_t threads, uint32_t startNounce, int order);
+extern uint32_t heavyhash_getSecNonce(int thr_id, int num);
 extern void heavyhash_cpu_free(int thr_id);
 
 extern "C" void heavyhash_hash(void *ohash, const void *input)
@@ -84,7 +85,17 @@ extern "C" int scanhash_heavyhash(int thr_id, struct work* work, uint32_t max_no
             if (vhash[7] <= Htarg && fulltest(vhash, ptarget)) {
 				work->valid_nonces = 1;
 				work_set_target_ratio(work, vhash);
-				pdata[19] = work->nonces[0] + 1; // cursor
+				work->nonces[1] = heavyhash_getSecNonce(thr_id, 1);
+				if (work->nonces[1] != UINT32_MAX) {
+					be32enc(&endiandata[19], work->nonces[1]);
+					heavyhash_hash(vhash, endiandata);
+					bn_set_target_ratio(work, vhash, 1);
+					work->valid_nonces++;
+					pdata[19] = max(work->nonces[0], work->nonces[1]) + 1;
+				}
+				else {
+					pdata[19] = work->nonces[0] + 1; // cursor
+				}
 				return work->valid_nonces;
 			}
 			else if (vhash[7] > Htarg) {
