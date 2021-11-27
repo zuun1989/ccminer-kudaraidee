@@ -44,7 +44,7 @@ static const uint64_t RC[24] = \
   REPEAT5(e; v += s;)
 
 /*** Keccak-f[1600] ***/
-static inline void keccakf(void* state) {
+static void __inline keccakf(void* state) {
     uint64_t* a = (uint64_t*)state;
     uint64_t b[5] = {0};
     uint64_t t = 0;
@@ -86,13 +86,13 @@ static inline void keccakf(void* state) {
 #define FOR(i, ST, L, S) \
   _(for (size_t i = 0; i < L; i += ST) { S; })
 #define mkapply_ds(NAME, S)                                          \
-  static inline void NAME(uint8_t* dst,                              \
+	static void __inline  NAME(uint8_t* dst, \
                           const uint8_t* src,                        \
                           size_t len) {                              \
     FOR(i, 1, len, S);                                               \
   }
 #define mkapply_sd(NAME, S)                                          \
-  static inline void NAME(const uint8_t* src,                        \
+	static void __inline  NAME(const uint8_t* src, \
                           uint8_t* dst,                              \
                           size_t len) {                              \
     FOR(i, 1, len, S);                                               \
@@ -114,7 +114,7 @@ mkapply_sd(setout, dst[i] = src[i])  // setout
   }
 
 /** The sponge-based hash construction. **/
-static inline int hash(uint8_t* out, size_t outlen,
+static int __inline  hash(uint8_t* out, size_t outlen,
                        const uint8_t* in, size_t inlen,
                        size_t rate, uint8_t delim) {
     if ((out == NULL) || ((in == NULL) && inlen != 0) || (rate >= Plen)) {

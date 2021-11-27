@@ -261,6 +261,8 @@
     <ClCompile Include="lyra2\Lyra2.c" />
     <ClCompile Include="lyra2\Sponge.c" />
     <ClCompile Include="lyra2\Lyra2Z.c" />
+    <ClCompile Include="heavyhash/heavyhash-gate.c" />
+    <ClCompile Include="heavyhash/keccak_tiny.c" />
     <ClInclude Include="equi\eqcuda.hpp" />
     <ClInclude Include="neoscrypt\neoscrypt.h" />
     <ClCompile Include="neoscrypt\neoscrypt.cpp" />
@@ -390,6 +392,8 @@
     <ClInclude Include="lyra2\Lyra2.h" />
     <ClInclude Include="lyra2\Sponge.h" />
     <ClInclude Include="lyra2\Lyra2Z.h" />
+    <ClInclude Include="heavyhash/heavyhash-gate.h" />
+    <ClInclude Include="heavyhash/keccak_tiny.h" />
     <ClInclude Include="quark\groestl_transf_quad.h" />
     <ClInclude Include="quark\groestl_functions_quad.h" />
     <ClInclude Include="quark\cuda_quark.h" />

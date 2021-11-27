@@ -9,8 +9,6 @@
 #include <math.h>
 #include <stdbool.h>
 
-#define bswap_32( a ) __builtin_bswap32( a )
-
 static inline void mm128_bswap32_80( void *d, void *s )
 {
   ( (uint32_t*)d )[ 0] = bswap_32( ( (uint32_t*)s )[ 0] );
@@ -77,7 +75,7 @@ static int compute_rank(const uint16_t A[64][64])
     }
 
     int rank = 0;
-    bool row_selected[64] = {};
+    bool row_selected[64] = {0};
 
     for (int i = 0; i < 64; ++i) {
         int j;
@@ -121,12 +119,12 @@ void generate_matrix(uint16_t matrix[64][64], struct xoshiro_state *state) {
 
 void heavyhash(const uint16_t matrix[64][64], uint8_t* pdata, size_t pdata_len, uint8_t* output)
 {
-    uint8_t hash_first[32] __attribute__((aligned(64)));
-    uint8_t hash_second[32] __attribute__((aligned(64)));
-    uint8_t hash_xored[32] __attribute__((aligned(64)));
+    uint8_t hash_first[32];
+    uint8_t hash_second[32];
+    uint8_t hash_xored[32];
 
-    uint16_t vector[64] __attribute__((aligned(64)));
-    uint16_t product[64] __attribute__((aligned(64)));
+    uint16_t vector[64];
+    uint16_t product[64];
 
     kt_sha3_256((uint8_t*) hash_first, 32, pdata, pdata_len);
 
