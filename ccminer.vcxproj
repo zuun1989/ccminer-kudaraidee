@@ -272,6 +272,8 @@
       <MaxRegCount>76</MaxRegCount>
     </CudaCompile>
     <CudaCompile Include="allium.cu" />
+    <CudaCompile Include="heavyhash/heavyhash.cu" />
+    <CudaCompile Include="heavyhash/cuda_heavyhash.cu" />
     <CudaCompile Include="crypto\cryptolight.cu" />
     <CudaCompile Include="crypto\cryptolight-core.cu">
       <MaxRegCount>64</MaxRegCount>
