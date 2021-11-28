@@ -126,8 +126,8 @@ void heavyhash(const uint32_t matrix[64][64], uint8_t* pdata, size_t pdata_len, 
     uint8_t hash_second[32];
     uint8_t hash_xored[32];
 
-    uint16_t vector[64];
-    uint16_t product[64];
+    uint32_t vector[64];
+    uint32_t product[64];
 
     kt_sha3_256((uint8_t*) hash_first, 32, pdata, pdata_len);
 
@@ -137,7 +137,7 @@ void heavyhash(const uint32_t matrix[64][64], uint8_t* pdata, size_t pdata_len, 
     }
 
     for (int i = 0; i < 64; ++i) {
-        uint16_t sum = 0;
+        uint32_t sum = 0;
         for (int j = 0; j < 64; ++j) {
             sum += matrix[i][j] * vector[j];
         }
