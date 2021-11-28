@@ -17,7 +17,7 @@ extern "C" void heavyhash_hash(void *ohash, const void *input)
     const uint32_t *data = (const uint32_t *) input;
     uint32_t seed[8];
 
-    uint16_t matrix[64][64];
+    uint32_t matrix[64][64];
     struct xoshiro_state state;
 
     kt_sha3_256((uint8_t *)seed, 32, (const uint8_t *)(data+1), 32);

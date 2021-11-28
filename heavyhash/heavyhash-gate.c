@@ -68,7 +68,7 @@ static inline uint64_t xoshiro_gen(struct xoshiro_state *state) {
     return result;
 }
 
-static int compute_rank(const uint16_t A[64][64])
+static int compute_rank(const uint32_t A[64][64])
 {
     double B[64][64];
     for (int i = 0; i < 64; ++i){
@@ -102,12 +102,12 @@ static int compute_rank(const uint16_t A[64][64])
     return rank;
 }
 
-static inline bool is_full_rank(const uint16_t matrix[64][64])
+static inline bool is_full_rank(const uint32_t matrix[64][64])
 {
     return compute_rank(matrix) == 64;
 }
 
-void generate_matrix(uint16_t matrix[64][64], struct xoshiro_state *state) {
+void generate_matrix(uint32_t matrix[64][64], struct xoshiro_state *state) {
     do {
         for (int i = 0; i < 64; ++i) {
             for (int j = 0; j < 64; j += 16) {
@@ -120,7 +120,7 @@ void generate_matrix(uint16_t matrix[64][64], struct xoshiro_state *state) {
     } while (!is_full_rank(matrix));
 }
 
-void heavyhash(const uint16_t matrix[64][64], uint8_t* pdata, size_t pdata_len, uint8_t* output)
+void heavyhash(const uint32_t matrix[64][64], uint8_t* pdata, size_t pdata_len, uint8_t* output)
 {
     uint8_t hash_first[32];
     uint8_t hash_second[32];

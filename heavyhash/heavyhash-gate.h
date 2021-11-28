@@ -8,10 +8,10 @@ struct xoshiro_state {
 };
 
 extern uint64_t le64dec(const void *pp);
-extern void generate_matrix(uint16_t matrix[64][64], struct xoshiro_state *state);
+extern void generate_matrix(uint32_t matrix[64][64], struct xoshiro_state *state);
 extern int heavyhash_test(unsigned char *pdata, const unsigned char *ptarget,
 			uint32_t nonce);
 extern void heavyhash_regenhash(struct work *work);
-extern void heavyhash(const uint16_t matrix[64][64], uint8_t* pdata, size_t pdata_len, uint8_t* output);
+extern void heavyhash(const uint32_t matrix[64][64], uint8_t* pdata, size_t pdata_len, uint8_t* output);
 
 #endif

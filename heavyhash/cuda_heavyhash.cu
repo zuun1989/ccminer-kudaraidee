@@ -10,7 +10,7 @@ extern "C" {
 #include <memory.h>
 
 __constant__ static uint32_t c_data[20];
-__constant__ static uint16_t c_matrix[64][64];
+__constant__ static uint32_t c_matrix[64][64];
 __constant__ uint32_t pTarget[8];
 
 static uint32_t *h_GNonces[MAX_GPUS];
@@ -97,10 +97,18 @@ static void __forceinline__ __device__ keccak_block(uint2 *s)
 __global__
 void heavyhash_gpu_hash(const uint32_t threads, const uint32_t startNonce, uint32_t *resNonces)
 {
+	__shared__ ulong2 matrix[1024];
+
     uint32_t thread = (blockDim.x * blockIdx.x + threadIdx.x);
     uint32_t nonce = startNonce + thread;
     if (thread < threads)
 	{
+		uint32_t tid = threadIdx.x;
+		ulong2 *cp = (ulong2 *)(&c_matrix[0][0]);
+		for (int i = 0; i < 4; i++) {
+			matrix[tid + i * 256] = cp[tid + i * 256];
+		}
+
         hash_t hash;
 
         uint32_t pdata[50] = {0};
@@ -113,8 +121,8 @@ void heavyhash_gpu_hash(const uint32_t threads, const uint32_t startNonce, uint3
         uint8_t hash_second[32];
         uint8_t hash_xored[32];
 
-        uint16_t vector[64];
-        uint16_t product[64];
+        uint32_t vector[64];
+        uint32_t product[64];
 
         ((uint8_t *) pdata)[80] = 0x06;
         ((uint8_t *) pdata)[135] = 0x80;
@@ -131,10 +139,29 @@ void heavyhash_gpu_hash(const uint32_t threads, const uint32_t startNonce, uint3
         }
 
         for (int i = 0; i < 64; ++i) {
-            uint16_t sum = 0;
-            for (int j = 0; j < 64; ++j) {
-                sum += c_matrix[i][j] * vector[j];
-            }
+            uint32_t sum = 0;
+			for (int k = 0; k < 4; k++) {
+				ulong2 buf0 = matrix[i * 16 + k * 4 + 0];
+				ulong2 buf1 = matrix[i * 16 + k * 4 + 1];
+				ulong2 buf2 = matrix[i * 16 + k * 4 + 2];
+				ulong2 buf3 = matrix[i * 16 + k * 4 + 3];
+				uint32_t *m0 = (uint32_t *)&buf0;
+				for (int j = 0; j < 4; j++) {
+					sum += m0[j] * vector[(k * 4 + 0) * 4 + j];
+				}
+				uint32_t *m1 = (uint32_t *)&buf1;
+				for (int j = 0; j < 4; j++) {
+					sum += m1[j] * vector[(k * 4 + 1) * 4 + j];
+				}
+				uint32_t *m2 = (uint32_t *)&buf2;
+				for (int j = 0; j < 4; j++) {
+					sum += m2[j] * vector[(k * 4 + 2) * 4 + j];
+				}
+				uint32_t *m3 = (uint32_t *)&buf3;
+				for (int j = 0; j < 4; j++) {
+					sum += m3[j] * vector[(k * 4 + 3) * 4 + j];
+				}
+			}
             product[i] = (sum >> 10);
         }
 
@@ -177,7 +204,7 @@ void heavyhash_cpu_setBlock_80(uint32_t *pdata)
 	cudaMemcpyToSymbol(c_data, &data[0], sizeof(c_data), 0, cudaMemcpyHostToDevice);
 
     uint32_t seed[8];
-    uint16_t matrix[64][64];
+    uint32_t matrix[64][64];
     struct xoshiro_state state;
 
     kt_sha3_256((uint8_t *)seed, 32, (const uint8_t *)(data+1), 32);
@@ -210,7 +237,7 @@ uint32_t heavyhash_cpu_hash(int thr_id, uint32_t threads, uint32_t startNounce, 
 	// berechne wie viele Thread Blocks wir brauchen
 	dim3 grid((threads + threadsperblock-1)/threadsperblock);
 	dim3 block(threadsperblock);
-    size_t shared_size = 0;
+    size_t shared_size = 8192 * 2;
 
 	heavyhash_gpu_hash<<<grid, block, shared_size>>>(threads, startNounce, d_GNonces[thr_id]);
 
