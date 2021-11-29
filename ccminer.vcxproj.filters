@@ -270,6 +270,12 @@
     <ClCompile Include="lyra2\Lyra2Z.c">
       <Filter>Source Files\sph</Filter>
     </ClCompile>
+    <ClCompile Include="heavyhash/heavyhash-gate.c">
+      <Filter>Source Files\heavyhash</Filter>
+    </ClCompile>
+    <ClCompile Include="heavyhash/keccak_tiny.c">
+      <Filter>Source Files\heavyhash</Filter>
+    </ClCompile>
     <ClCompile Include="scrypt.cpp">
       <Filter>Source Files\CUDA\scrypt</Filter>
     </ClCompile>
@@ -505,6 +511,12 @@
     </ClInclude>
     <ClInclude Include="lyra2\Lyra2Z.h">
       <Filter>Header Files\lyra2</Filter>
+    </ClInclude>
+    <ClInclude Include="heavyhash/heavyhash-gate.h">
+      <Filter>Source Files\heavyhash</Filter>
+    </ClInclude>
+    <ClInclude Include="heavyhash/keccak_tiny.h">
+      <Filter>Source Files\heavyhash</Filter>
     </ClInclude>
     <ClInclude Include="lyra2\Sponge.h">
       <Filter>Header Files\lyra2</Filter>
@@ -969,6 +981,12 @@
     </CudaCompile>
     <CudaCompile Include="allium.cu">
       <Filter>Source Files\CUDA</Filter>
+    </CudaCompile>
+    <CudaCompile Include="heavyhash/heavyhash.cu">
+      <Filter>Source Files\CUDA\heavyhash</Filter>
+    </CudaCompile>
+    <CudaCompile Include="heavyhash/cuda_heavyhash.cu">
+      <Filter>Source Files\CUDA\heavyhash</Filter>
     </CudaCompile>
   </ItemGroup>
   <ItemGroup>

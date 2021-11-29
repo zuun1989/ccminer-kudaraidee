@@ -24,6 +24,10 @@ ccminer_SOURCES	= elist.h miner.h compat.h \
 			  nvsettings.cpp \
 			  equi/equi-stratum.cpp equi/equi.cpp equi/blake2/blake2bx.cpp \
 			  allium.cu \
+			  heavyhash/heavyhash.cu \
+			  heavyhash/cuda_heavyhash.cu \
+			  heavyhash/keccak_tiny.c \
+			  heavyhash/heavyhash-gate.c \
 			  heavy/heavy.cu \
 			  heavy/cuda_blake512.cu heavy/cuda_blake512.h \
 			  heavy/cuda_combine.cu heavy/cuda_combine.h \

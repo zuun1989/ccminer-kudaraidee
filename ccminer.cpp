@@ -237,6 +237,7 @@ Usage: " PROGRAM_NAME " [OPTIONS]\n\
 Options:\n\
   -a, --algo=ALGO       specify the hash algorithm to use\n\
 			allium		Lyra2 blake2s\n\
+			heavyhash	oBTC coin\n\
 			bastion     Hefty bastion\n\
 			bitcore     Timetravel-10\n\
 			blake       Blake 256 (SFR)\n\
@@ -2414,6 +2415,9 @@ static void *miner_thread(void *userdata)
 			break;
 		case ALGO_ALLIUM:
 			rc = scanhash_allium(thr_id, &work, max_nonce, &hashes_done);
+			break;
+		case ALGO_HEAVYHASH:
+			rc = scanhash_heavyhash(thr_id, &work, max_nonce, &hashes_done);
 			break;
 		case ALGO_NEOSCRYPT:
 			rc = scanhash_neoscrypt(thr_id, &work, max_nonce, &hashes_done);

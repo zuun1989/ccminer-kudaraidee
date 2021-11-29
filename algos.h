@@ -31,6 +31,7 @@ enum sha_algos {
 	ALGO_LUFFA,
 	ALGO_LYRA2,
 	ALGO_ALLIUM,
+	ALGO_HEAVYHASH,
 	ALGO_LYRA2v2,
 	ALGO_LYRA2Z,
 	ALGO_MJOLLNIR,		/* Hefty hash */
@@ -101,6 +102,7 @@ static const char *algo_names[] = {
 	"luffa",
 	"lyra2",
 	"allium",
+	"heavyhash",
 	"lyra2v2",
 	"lyra2z",
 	"mjollnir",
