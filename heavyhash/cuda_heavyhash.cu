@@ -97,15 +97,15 @@ static void __forceinline__ __device__ keccak_block(uint2 *s)
 __global__
 void heavyhash_gpu_hash(const uint32_t threads, const uint32_t startNonce, uint32_t *resNonces)
 {
-	__shared__ ulong2 matrix[1024];
+	__shared__ uint64_t matrix[1024 * 2];
 
     uint32_t thread = (blockDim.x * blockIdx.x + threadIdx.x);
     uint32_t nonce = startNonce + thread;
     if (thread < threads)
 	{
 		uint32_t tid = threadIdx.x;
-		ulong2 *cp = (ulong2 *)(&c_matrix[0][0]);
-		for (int i = 0; i < 4; i++) {
+		uint64_t *cp = (uint64_t *)(c_matrix);
+		for (int i = 0; i < 8; i++) {
 			matrix[tid + i * 256] = cp[tid + i * 256];
 		}
 
@@ -140,26 +140,26 @@ void heavyhash_gpu_hash(const uint32_t threads, const uint32_t startNonce, uint3
 
         for (int i = 0; i < 64; ++i) {
             uint32_t sum = 0;
-			for (int k = 0; k < 4; k++) {
-				ulong2 buf0 = matrix[i * 16 + k * 4 + 0];
-				ulong2 buf1 = matrix[i * 16 + k * 4 + 1];
-				ulong2 buf2 = matrix[i * 16 + k * 4 + 2];
-				ulong2 buf3 = matrix[i * 16 + k * 4 + 3];
+			for (int k = 0; k < 8; k++) {
+				uint64_t buf0 = matrix[i * 32 + k * 4 + 0];
+				uint64_t buf1 = matrix[i * 32 + k * 4 + 1];
+				uint64_t buf2 = matrix[i * 32 + k * 4 + 2];
+				uint64_t buf3 = matrix[i * 32 + k * 4 + 3];
 				uint32_t *m0 = (uint32_t *)&buf0;
-				for (int j = 0; j < 4; j++) {
-					sum += m0[j] * vector[(k * 4 + 0) * 4 + j];
+				for (int j = 0; j < 2; j++) {
+					sum += m0[j] * vector[(k * 4 + 0) * 2 + j];
 				}
 				uint32_t *m1 = (uint32_t *)&buf1;
-				for (int j = 0; j < 4; j++) {
-					sum += m1[j] * vector[(k * 4 + 1) * 4 + j];
+				for (int j = 0; j < 2; j++) {
+					sum += m1[j] * vector[(k * 4 + 1) * 2 + j];
 				}
 				uint32_t *m2 = (uint32_t *)&buf2;
-				for (int j = 0; j < 4; j++) {
-					sum += m2[j] * vector[(k * 4 + 2) * 4 + j];
+				for (int j = 0; j < 2; j++) {
+					sum += m2[j] * vector[(k * 4 + 2) * 2 + j];
 				}
 				uint32_t *m3 = (uint32_t *)&buf3;
-				for (int j = 0; j < 4; j++) {
-					sum += m3[j] * vector[(k * 4 + 3) * 4 + j];
+				for (int j = 0; j < 2; j++) {
+					sum += m3[j] * vector[(k * 4 + 3) * 2 + j];
 				}
 			}
             product[i] = (sum >> 10);
