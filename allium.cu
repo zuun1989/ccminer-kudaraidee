@@ -115,7 +115,10 @@ extern "C" int scanhash_allium(int thr_id, struct work* work, uint32_t max_nonce
 		if (strstr(props.name, "3090") ||
 		    strstr(props.name, "3080") ||
             strstr(props.name, "3070") ||
-		    strstr(props.name, "3060")) high_end = 2;
+		    strstr(props.name, "3060") ||
+			strstr(props.name, "A4000") ||
+			strstr(props.name, "A5000") ||
+			strstr(props.name, "A6000")) high_end = 2;
 		else high_end = 0;
 
 		gpulog(LOG_INFO, thr_id, "Intensity set to %g, %u cuda threads", throughput2intensity(throughput), throughput);
