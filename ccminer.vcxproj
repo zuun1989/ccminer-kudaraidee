@@ -550,6 +550,7 @@
     <CudaCompile Include="x11\bitcore.cu" />
     <CudaCompile Include="x11\veltor.cu" />
     <CudaCompile Include="x11\x11.cu" />
+    <CudaCompile Include="x11\0x10.cu" />
     <CudaCompile Include="x11\x11evo.cu" />
     <CudaCompile Include="x13\cuda_x13_hamsi512.cu">
       <MaxRegCount>72</MaxRegCount>
