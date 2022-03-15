@@ -104,6 +104,7 @@ its command line interface and options.
                           lyra2z      use to mine Zerocoin (XZC)
                           myr-gr      use to mine Myriad-Groest
                           neoscrypt   use to mine FeatherCoin, Trezarcoin, Orbitcoin, etc
+						  neoscrypt-xaya use to mine XAYA
                           nist5       use to mine TalkCoin
                           penta       use to mine Joincoin / Pentablake
                           phi         use to mine LUXCoin
