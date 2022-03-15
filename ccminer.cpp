@@ -44,6 +44,7 @@
 #include "algos.h"
 #include "sia/sia-rpc.h"
 #include "crypto/xmr-rpc.h"
+#include "sph/sph_sha3d.h"
 #include "equi/equihash.h"
 
 #include <cuda_runtime.h>
@@ -55,7 +56,7 @@
 BOOL WINAPI ConsoleHandler(DWORD);
 #endif
 
-#define PROGRAM_NAME		"ccminer-fancyIX"
+#define PROGRAM_NAME		"ccminer-kudaraidee"
 #define LP_SCANTIME		60
 #define HEAVYCOIN_BLKHDR_SZ		84
 #define MNR_BLKHDR_SZ 80
@@ -276,6 +277,7 @@ Options:\n\
 			qubit       Qubit\n\
 			sha256d     SHA256d (bitcoin)\n\
 			sha256t     SHA256 x3\n\
+			sha3d     	bsha3, Yilacoin and Kylacoin\n\
 			sia         SIA (Blake2B)\n\
 			sib         Sibcoin (X11+Streebog)\n\
 			scrypt      Scrypt\n\
@@ -1523,6 +1525,21 @@ err_out:
 	return false;
 }
 
+void sha3d(void *state, const void *input, int len)
+{
+	uint32_t _ALIGN(64) buffer[16], hash[16];
+	sph_keccak_context ctx_keccak;
+
+	sph_sha3d256_init(&ctx_keccak);
+	sph_sha3d256 (&ctx_keccak, input, len);
+	sph_sha3d256_close(&ctx_keccak, (void*) buffer);
+	sph_sha3d256_init(&ctx_keccak);
+	sph_sha3d256 (&ctx_keccak, buffer, 32);
+	sph_sha3d256_close(&ctx_keccak, (void*) hash);
+
+	memcpy(state, hash, 32);
+}
+
 static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 {
 	uchar merkle_root[64] = { 0 };
@@ -1565,6 +1582,9 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_FUGUE256:
 		case ALGO_GROESTL:
 		case ALGO_KECCAK:
+		case ALGO_SHA3D:
+			sha3d(merkle_root, sctx->job.coinbase, (int)sctx->job.coinbase_size);
+			break;
 		case ALGO_BLAKECOIN:
 		case ALGO_WHIRLCOIN:
 			SHA256((uchar*)sctx->job.coinbase, sctx->job.coinbase_size, (uchar*)merkle_root);
@@ -1717,6 +1737,7 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_EQUIHASH:
 			equi_work_set_target(work, sctx->job.diff / opt_difficulty);
 			break;
+		case ALGO_SHA3D:
 		default:
 			work_set_target(work, sctx->job.diff / opt_difficulty);
 	}
@@ -2449,6 +2470,9 @@ static void *miner_thread(void *userdata)
 			break;
 		case ALGO_SHA256T:
 			rc = scanhash_sha256t(thr_id, &work, max_nonce, &hashes_done);
+			break;
+		case ALGO_SHA3D:
+			rc = scanhash_sha3d(thr_id, &work, max_nonce, &hashes_done);
 			break;
 		case ALGO_SIA:
 			rc = scanhash_sia(thr_id, &work, max_nonce, &hashes_done);

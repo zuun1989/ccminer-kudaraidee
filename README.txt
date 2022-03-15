@@ -1,10 +1,13 @@
 
-ccminer-fancyIX 0.3.0 (Jan. 2018)     "lyra2v2 and keccak improvements"
+ccminer-kudaraidee 1.0.0 (March. 2022)     "0x10 and sha3d improvements"
 ---------------------------------------------------------------
 
 ***************************************************************
 If you find this tool useful and like to support its continuous
           development, then consider a donation.
+
+kudaraidee@github:
+  DOGE  : D6oP3WPygJ4NR26XxfFydUsCiNS4oX9rqb
 
 tpruvot@github:
   BTC  : 1AJdfCpLWPNoAMDfHF1wD5y8VgKSSTHxPo
@@ -73,6 +76,7 @@ This code is based on the pooler cpuminer and inherits
 its command line interface and options.
 
   -a, --algo=ALGO       specify the algorithm to use
+                          0x10 		  use to mine ChainOX
                           bastion     use to mine Joincoin
                           bitcore     use to mine Bitcore's Timetravel10
                           blake       use to mine Saffroncoin (Blake256)
@@ -111,6 +115,7 @@ its command line interface and options.
                           scrypt-jane use to mine Chacha coins like Cache and Ultracoin
                           s3          use to mine 1coin (ONE)
                           sha256t     use to mine OneCoin (OC)
+                          sha3d       use to mine BSHA3, Yilacoin and Kylacoin
                           sia         use to mine SIA
                           sib         use to mine Sibcoin
                           skein       use to mine Skeincoin

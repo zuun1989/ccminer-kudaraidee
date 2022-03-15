@@ -313,6 +313,7 @@
     <ClCompile Include="sph\haval.c" />
     <ClCompile Include="sph\jh.c" />
     <ClCompile Include="sph\keccak.c" />
+    <ClCompile Include="sph\sha3d.c" />
     <ClCompile Include="sph\luffa.c" />
     <ClCompile Include="sph\ripemd.c" />
     <ClCompile Include="sph\sph_sha2.c" />
@@ -378,6 +379,7 @@
     <ClInclude Include="sph\sph_haval.h" />
     <ClInclude Include="sph\sph_jh.h" />
     <ClInclude Include="sph\sph_keccak.h" />
+    <ClInclude Include="sph\sph_sha3d.h" />
     <ClInclude Include="sph\sph_luffa.h" />
     <ClInclude Include="sph\sph_sha2.h" />
     <ClInclude Include="sph\sph_shabal.h" />
@@ -448,6 +450,7 @@
     </CudaCompile>
     <CudaCompile Include="Algo256\vanilla.cu" />
     <CudaCompile Include="Algo256\keccak256.cu" />
+    <CudaCompile Include="Algo256\sha3d.cu" />
     <CudaCompile Include="Algo256\cuda_blake256.cu" />
     <CudaCompile Include="Algo256\cuda_bmw256.cu" />
     <CudaCompile Include="Algo256\cuda_cubehash256.cu" />
@@ -456,6 +459,9 @@
     <CudaCompile Include="Algo256\cuda_keccak256.cu" />
     <CudaCompile Include="Algo256\cuda_keccak256_sm3.cu">
       <MaxRegCount>92</MaxRegCount>
+    </CudaCompile>
+    <CudaCompile Include="Algo256\cuda_keccak256_sha3d.cu">
+      <MaxRegCount>128</MaxRegCount>
     </CudaCompile>
     <CudaCompile Include="Algo256\cuda_skein256.cu" />
     <CudaCompile Include="lbry\cuda_sha256_lbry.cu" />
