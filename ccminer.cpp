@@ -3347,8 +3347,10 @@ void parse_arg(int key, char *arg)
 		}
 		p = strstr(arg, "://");
 		if (p) {
-			if (strncasecmp(arg, "http://", 7) && strncasecmp(arg, "https://", 8) &&
-					strncasecmp(arg, "stratum+tcp://", 14))
+			if (strncasecmp(arg, "http://", 7) 
+				&& strncasecmp(arg, "https://", 8) 
+				&& strncasecmp(arg, "stratum+tcp://", 14) 
+				&& strncasecmp(arg, "stratum+tcps://", 15) )
 				show_usage_and_exit(1);
 			free(rpc_url);
 			rpc_url = strdup(arg);
@@ -4035,9 +4037,12 @@ int main(int argc, char *argv[])
 		GetScratchpad();
 	}
 
-	flags = !opt_benchmark && strncmp(rpc_url, "https:", 6)
-	      ? (CURL_GLOBAL_ALL & ~CURL_GLOBAL_SSL)
-	      : CURL_GLOBAL_ALL;
+	flags = CURL_GLOBAL_ALL;
+	if ( !opt_benchmark )
+		if ( strncasecmp( rpc_url, "https:", 6 )
+			&& strncasecmp( rpc_url, "stratum+tcps://", 15 ) )
+			flags &= ~CURL_GLOBAL_SSL;
+
 	if (curl_global_init(flags)) {
 		applog(LOG_ERR, "CURL initialization failed");
 		return EXIT_CODE_SW_INIT_ERROR;
