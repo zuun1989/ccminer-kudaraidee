@@ -1,5 +1,5 @@
 
-ccminer-kudaraidee 1.0.0 (March. 2022)     "0x10 and sha3d improvements"
+ccminer-kudaraidee 1.0.0 (March. 2022)     "0x10 ,x21s and sha3d improvements"
 ---------------------------------------------------------------
 
 ***************************************************************
@@ -129,6 +129,7 @@ its command line interface and options.
                           x14         use to mine X14Coin
                           x15         use to mine Halcyon
                           x17         use to mine X17
+                          x21s        use to mine X21S
                           vanilla     use to mine Vanilla (Blake256)
                           veltor      use to mine VeltorCoin
                           whirlpool   use to mine Joincoin

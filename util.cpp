@@ -2221,6 +2221,9 @@ void print_hash_tests(void)
 	keccak256_hash(&hash[0], &buf[0]);
 	printpfx("keccak", hash);
 
+	sha3d_hash(&hash[0], &buf[0]);
+	printpfx("sha3d", hash);
+	
 	memset(buf, 0, 128);
 	lbry_hash(&hash[0], &buf[0]);
 	printpfx("lbry", hash);
@@ -2324,8 +2327,17 @@ void print_hash_tests(void)
 	x15hash(&hash[0], &buf[0]);
 	printpfx("X15", hash);
 
+	x16r_hash(&hash[0], &buf[0]);
+	printpfx("X16R", hash);
+
+	x16s_hash(&hash[0], &buf[0]);
+	printpfx("X16S", hash);
+
 	x17hash(&hash[0], &buf[0]);
 	printpfx("X17", hash);
+
+	x21s_hash(&hash[0], &buf[0]);
+	printpfx("X21S", hash);
 
 	//memcpy(buf, zrtest, 80);
 	zr5hash(&hash[0], &buf[0]);

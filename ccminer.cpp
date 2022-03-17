@@ -299,6 +299,9 @@ Options:\n\
 			x14         X14\n\
 			x15         X15\n\
 			x17         X17\n\
+			x16r        X16R\n\
+			x16s        X16S\n\
+			x21s        X21S\n\
 			wildkeccak  Boolberry\n\
 			zr5         ZR5 (ZiftrCoin)\n\
   -d, --devices         Comma separated list of CUDA devices to use.\n\
@@ -1738,6 +1741,10 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_LYRA2Z:
 		case ALGO_ALLIUM:
 		case ALGO_TIMETRAVEL:
+		case ALGO_X16R:
+		case ALGO_X16S:
+			work_set_target(work, sctx->job.diff / (256.0 * opt_difficulty));
+			break;
 		case ALGO_BITCORE:
 			work_set_target(work, sctx->job.diff / (256.0 * opt_difficulty));
 			break;
@@ -2541,8 +2548,17 @@ static void *miner_thread(void *userdata)
 		case ALGO_X15:
 			rc = scanhash_x15(thr_id, &work, max_nonce, &hashes_done);
 			break;
+		case ALGO_X16R:
+			rc = scanhash_x16r(thr_id, &work, max_nonce, &hashes_done);
+			break;
+		case ALGO_X16S:
+			rc = scanhash_x16s(thr_id, &work, max_nonce, &hashes_done);
+			break;
 		case ALGO_X17:
 			rc = scanhash_x17(thr_id, &work, max_nonce, &hashes_done);
+			break;
+		case ALGO_X21S:
+			rc = scanhash_x21s(thr_id, &work, max_nonce, &hashes_done);
 			break;
 		case ALGO_ZR5:
 			rc = scanhash_zr5(thr_id, &work, max_nonce, &hashes_done);

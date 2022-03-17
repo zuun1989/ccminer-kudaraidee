@@ -66,7 +66,7 @@ ccminer_SOURCES	= elist.h miner.h compat.h \
 			  sia/sia.cu sia/sia-rpc.cpp sph/blake2b.c \
 			  sph/bmw.c sph/blake.c sph/groestl.c sph/jh.c sph/keccak.c sph/skein.c \
 			  sph/cubehash.c sph/echo.c sph/luffa.c sph/sha2.c sph/shavite.c sph/simd.c \
-			  sph/hamsi.c sph/hamsi_helper.c sph/streebog.c \
+			  sph/hamsi.c sph/hamsi_helper.c sph/streebog.c sph/tiger.c \
 			  sph/shabal.c sph/whirlpool.c sph/sha2big.c sph/haval.c \
 			  sph/ripemd.c sph/sph_sha2.c sph/sha3d.c \
 			  polytimos.cu \
@@ -80,10 +80,14 @@ ccminer_SOURCES	= elist.h miner.h compat.h \
 			  x13/hsr.cu x13/cuda_hsr_sm3.cu x13/sm3.c \
 			  x15/x14.cu x15/x15.cu x15/cuda_x14_shabal512.cu x15/cuda_x15_whirlpool.cu \
 			  x15/whirlpool.cu x15/cuda_x15_whirlpool_sm3.cu \
+			  x16/x16r.cu x16/x16s.cu x16/cuda_x16_echo512.cu x16/cuda_x16_fugue512.cu \
+			  x16/cuda_x16_shabal512.cu x16/cuda_x16_simd512_80.cu \
+			  x16/cuda_x16_echo512_64.cu \
 			  x17/x17.cu x17/hmq17.cu x17/cuda_x17_haval256.cu x17/cuda_x17_sha512.cu \
 			  x11/phi.cu x11/cuda_streebog_maxwell.cu \
-			  x11/c11.cu x11/s3.cu x11/sib.cu x11/veltor.cu x11/cuda_streebog.cu x11/0x10.cu
-
+			  x11/c11.cu x11/s3.cu x11/sib.cu x11/veltor.cu x11/cuda_streebog.cu x11/0x10.cu \
+			  x21/x21s.cu x21/cuda_sha256.cu x21/cuda_tiger192.cu 
+			  
 # scrypt
 ccminer_SOURCES += scrypt.cpp scrypt-jane.cpp \
     scrypt/blake.cu scrypt/keccak.cu scrypt/sha256.cu \

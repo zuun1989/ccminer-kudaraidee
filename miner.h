@@ -328,7 +328,10 @@ extern int scanhash_x11(int thr_id, struct work* work, uint32_t max_nonce, unsig
 extern int scanhash_x13(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_x14(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_x15(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_x16r(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_x16s(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_x17(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_x21s(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_zr5(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
 
 /* free device allocated memory per algo */
@@ -388,7 +391,10 @@ extern void free_x11(int thr_id);
 extern void free_x13(int thr_id);
 extern void free_x14(int thr_id);
 extern void free_x15(int thr_id);
+extern void free_x16r(int thr_id);
+extern void free_x16s(int thr_id);
 extern void free_x17(int thr_id);
+extern void free_x21s(int thr_id);
 extern void free_zr5(int thr_id);
 /* api related */
 void *api_thread(void *userdata);
@@ -932,7 +938,10 @@ void x11hash(void *output, const void *input);
 void x13hash(void *output, const void *input);
 void x14hash(void *output, const void *input);
 void x15hash(void *output, const void *input);
+void x16r_hash(void *output, const void *input);
+void x16s_hash(void *output, const void *input);
 void x17hash(void *output, const void *input);
+void x21s_hash(void *output, const void *input);
 void wildkeccak_hash(void *output, const void *input, uint64_t* scratchpad, uint64_t ssize);
 void zr5hash(void *output, const void *input);
 void zr5hash_pok(void *output, uint32_t *pdata);
