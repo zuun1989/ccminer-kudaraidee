@@ -275,8 +275,8 @@
     <ClCompile Include="lyra2\Sponge.c" />
     <ClCompile Include="lyra2\Lyra2Z.c" />
     <ClCompile Include="heavyhash/heavyhash-gate.c" />
-    <ClCompile Include="heavyhash/keccak_tiny.c" /> 
-	<ClInclude Include="equi\eqcuda.hpp" />
+    <ClCompile Include="heavyhash/keccak_tiny.c" />
+    <ClInclude Include="equi\eqcuda.hpp" />
     <ClInclude Include="neoscrypt\neoscrypt.h" />
     <ClCompile Include="neoscrypt\neoscrypt.cpp" />
     <ClCompile Include="neoscrypt\neoscrypt-cpu.c" />
@@ -288,7 +288,7 @@
     <CudaCompile Include="Algo256\cuda_bmw.cu">
       <MaxRegCount>76</MaxRegCount>
     </CudaCompile>
-	<CudaCompile Include="allium.cu" />
+    <CudaCompile Include="allium.cu" />
     <CudaCompile Include="heavyhash/heavyhash.cu" />
     <CudaCompile Include="heavyhash/cuda_heavyhash.cu" />
     <CudaCompile Include="crypto\cryptolight.cu" />
@@ -411,7 +411,7 @@
     <ClInclude Include="lyra2\Lyra2.h" />
     <ClInclude Include="lyra2\Sponge.h" />
     <ClInclude Include="lyra2\Lyra2Z.h" />
-	<ClInclude Include="heavyhash/heavyhash-gate.h" />
+    <ClInclude Include="heavyhash/heavyhash-gate.h" />
     <ClInclude Include="heavyhash/keccak_tiny.h" />
     <ClInclude Include="quark\groestl_transf_quad.h" />
     <ClInclude Include="quark\groestl_functions_quad.h" />
@@ -605,7 +605,7 @@
     <CudaCompile Include="x17\cuda_x17_sha512.cu">
       <MaxRegCount>80</MaxRegCount>
     </CudaCompile>
-	<CudaCompile Include="x21\x21s.cu" />
+    <CudaCompile Include="x21\x21s.cu" />
     <CudaCompile Include="x21\cuda_sha256_2.cu" />
     <CudaCompile Include="x21\cuda_tiger192.cu" />
   </ItemGroup>
