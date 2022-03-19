@@ -2181,6 +2181,9 @@ void print_hash_tests(void)
 	bmw_hash(&hash[0], &buf[0]);
 	printpfx("bmw", hash);
 
+	bmw512_hash(&hash[0], &buf[0]);
+	printpfx("bmw512", hash);
+
 	c11hash(&hash[0], &buf[0]);
 	printpfx("c11", hash);
 

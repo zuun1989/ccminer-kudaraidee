@@ -899,6 +899,9 @@
     <CudaCompile Include="Algo256\bmw.cu">
       <Filter>Source Files\CUDA\Algo256</Filter>
     </CudaCompile>
+    <CudaCompile Include="Algo256\bmw512.cu">
+      <Filter>Source Files\CUDA\Algo256</Filter>
+    </CudaCompile>
     <CudaCompile Include="Algo256\cuda_bmw.cu">
       <Filter>Source Files\CUDA\Algo256</Filter>
     </CudaCompile>

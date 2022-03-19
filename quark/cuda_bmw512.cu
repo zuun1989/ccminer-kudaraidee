@@ -315,6 +315,8 @@ void Compression512(uint2 *msg, uint2 *hash)
 	hash[15] = ROL(hash[3],16) + (XH64 ^ q[31] ^ msg[15]) + (SHR(XL64, 2) ^ q[22] ^ q[15]);
 }
 
+
+
 __global__
 #if __CUDA_ARCH__ > 500
 __launch_bounds__(32, 16)
@@ -362,9 +364,9 @@ void quark_bmw512_gpu_hash_64(uint32_t threads, uint32_t startNounce, uint64_t *
 		for(int i=9;i<15;i++)
 			message[i] = make_uint2(0,0);
 
-		// Padding einfügen (Byteorder?!?)
+		// Padding einf?gen (Byteorder?!?)
 		message[8] = make_uint2(0x80,0);
-		// Länge (in Bits, d.h. 64 Byte * 8 = 512 Bits
+		// L?nge (in Bits, d.h. 64 Byte * 8 = 512 Bits
 		message[15] = make_uint2(512,0);
 
 		// Compression 1
@@ -444,6 +446,54 @@ void quark_bmw512_gpu_hash_80(uint32_t threads, uint32_t startNounce, uint64_t *
 	}
 }
 
+__global__ __launch_bounds__(128, 4)
+void quark_bmw512_gpu_hash_80_final(uint32_t threads, uint32_t startNounce, uint32_t *resNonce, const uint64_t target)
+{
+	uint32_t thread = (blockDim.x * blockIdx.x + threadIdx.x);
+	if (thread < threads)
+	{
+		uint32_t nounce = startNounce + thread;
+
+		// Init
+		uint2 h[16] = {
+			{ 0x84858687UL, 0x80818283UL },
+			{ 0x8C8D8E8FUL, 0x88898A8BUL },
+			{ 0x94959697UL, 0x90919293UL },
+			{ 0x9C9D9E9FUL, 0x98999A9BUL },
+			{ 0xA4A5A6A7UL, 0xA0A1A2A3UL },
+			{ 0xACADAEAFUL, 0xA8A9AAABUL },
+			{ 0xB4B5B6B7UL, 0xB0B1B2B3UL },
+			{ 0xBCBDBEBFUL, 0xB8B9BABBUL },
+			{ 0xC4C5C6C7UL, 0xC0C1C2C3UL },
+			{ 0xCCCDCECFUL, 0xC8C9CACBUL },
+			{ 0xD4D5D6D7UL, 0xD0D1D2D3UL },
+			{ 0xDCDDDEDFUL, 0xD8D9DADBUL },
+			{ 0xE4E5E6E7UL, 0xE0E1E2E3UL },
+			{ 0xECEDEEEFUL, 0xE8E9EAEBUL },
+			{ 0xF4F5F6F7UL, 0xF0F1F2F3UL },
+			{ 0xFCFDFEFFUL, 0xF8F9FAFBUL }
+		};
+		uint2 message[16];
+		#pragma unroll
+		for (int i=0;i<16;i++) message[i] = vectorize(c_PaddedMessage80[i]);
+
+		message[9].y = cuda_swab32(nounce);	//REPLACE_HIDWORD(message[9], cuda_swab32(nounce));
+
+		Compression512(message, h);
+
+		#pragma unroll
+		for (int i=0;i<16;i++) message[i] = make_uint2(0xaaaaaaa0+i,0xaaaaaaaa);
+
+		Compression512(h, message);
+
+		if(devectorize(message[3+8]) <= target){
+			uint32_t tmp = atomicExch(&resNonce[0], thread);
+			if (tmp != UINT32_MAX)
+				resNonce[1] = tmp;
+		}
+	}
+}
+
 __host__
 void quark_bmw512_cpu_setBlock_80(void *pdata)
 {
@@ -468,6 +518,15 @@ void quark_bmw512_cpu_hash_80(int thr_id, uint32_t threads, uint32_t startNounce
 		quark_bmw512_gpu_hash_80<<<grid, block>>>(threads, startNounce, (uint64_t*)d_hash);
 	else
 		quark_bmw512_gpu_hash_80_30<<<grid, block>>>(threads, startNounce, (uint64_t*)d_hash);
+}
+
+__host__
+void quark_bmw512_cpu_hash_80_final(int thr_id, uint32_t threads, uint32_t startNounce, uint32_t *d_resNonce, const uint64_t target)
+{
+	const uint32_t threadsperblock = 128;
+	dim3 grid((threads + threadsperblock-1)/threadsperblock);
+	dim3 block(threadsperblock);
+	quark_bmw512_gpu_hash_80_final<<<grid, block>>>(threads, startNounce, d_resNonce, target);
 }
 
 __host__

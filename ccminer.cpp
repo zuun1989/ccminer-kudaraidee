@@ -245,6 +245,7 @@ Options:\n\
 			blake2s     Blake2-S 256 (NEVA)\n\
 			blakecoin   Fast Blake 256 (8 rounds)\n\
 			bmw         BMW 256\n\
+			bmw512      BMW 512\n\
 			cryptolight AEON cryptonight (MEM/2)\n\
 			cryptonight XMR cryptonight\n\
 			c11/flax    X11 variant\n\
@@ -957,6 +958,7 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 		case ALGO_BLAKECOIN:
 		case ALGO_BLAKE2S:
 		case ALGO_BMW:
+		case ALGO_BMW512:
 		case ALGO_SHA256D:
 		case ALGO_SHA256T:
 		case ALGO_VANILLA:
@@ -1742,6 +1744,7 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_ALLIUM:
 		case ALGO_TIMETRAVEL:
 		case ALGO_BITCORE:
+		case ALGO_BMW512:
 		case ALGO_X16R:
 		case ALGO_X16S:
 		case ALGO_X21S:
@@ -2254,6 +2257,7 @@ static void *miner_thread(void *userdata)
 				break;
 			case ALGO_BLAKE:
 			case ALGO_BMW:
+			case ALGO_BMW512:
 			case ALGO_DECRED:
 			case ALGO_SHA256D:
 			case ALGO_SHA256T:
@@ -2375,6 +2379,9 @@ static void *miner_thread(void *userdata)
 			break;
 		case ALGO_BMW:
 			rc = scanhash_bmw(thr_id, &work, max_nonce, &hashes_done);
+			break;
+		case ALGO_BMW512:
+			rc = scanhash_bmw512(thr_id, &work, max_nonce, &hashes_done);
 			break;
 		case ALGO_C11:
 			rc = scanhash_c11(thr_id, &work, max_nonce, &hashes_done);

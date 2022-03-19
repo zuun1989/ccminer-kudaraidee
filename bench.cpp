@@ -56,6 +56,7 @@ void algo_free_all(int thr_id)
 	free_blake256(thr_id);
 	free_blake2s(thr_id);
 	free_bmw(thr_id);
+	free_bmw512(thr_id);
 	free_c11(thr_id);
 	free_cryptolight(thr_id);
 	free_cryptonight(thr_id);
@@ -90,6 +91,7 @@ void algo_free_all(int thr_id)
 	free_skunk(thr_id);
 	free_sha256d(thr_id);
 	free_sha256t(thr_id);
+	free_sha3d(thr_id);
 	free_sia(thr_id);
 	free_sib(thr_id);
 	free_s3(thr_id);
@@ -103,7 +105,10 @@ void algo_free_all(int thr_id)
 	free_x13(thr_id);
 	free_x14(thr_id);
 	free_x15(thr_id);
+	free_x16r(thr_id);
+	free_x16s(thr_id);
 	free_x17(thr_id);
+	free_x21s(thr_id);
 	free_zr5(thr_id);
 	free_timetravel(thr_id);
 	free_tribus(thr_id);
