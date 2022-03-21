@@ -2559,6 +2559,9 @@ static void *miner_thread(void *userdata)
 		case ALGO_X16R:
 			rc = scanhash_x16r(thr_id, &work, max_nonce, &hashes_done);
 			break;
+		case ALGO_X16RV2:
+			rc = scanhash_x16rv2(thr_id, &work, max_nonce, &hashes_done);
+			break;
 		case ALGO_X16S:
 			rc = scanhash_x16s(thr_id, &work, max_nonce, &hashes_done);
 			break;
