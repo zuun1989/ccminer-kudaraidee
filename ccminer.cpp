@@ -301,6 +301,7 @@ Options:\n\
 			x15         X15\n\
 			x17         X17\n\
 			x16r        X16R\n\
+			x16rv2      X16R V2\n\
 			x16s        X16S\n\
 			x21s        X21S\n\
 			wildkeccak  Boolberry\n\
@@ -1746,6 +1747,7 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_BITCORE:
 		case ALGO_BMW512:
 		case ALGO_X16R:
+		case ALGO_X16RV2:
 		case ALGO_X16S:
 		case ALGO_X21S:
 			work_set_target(work, sctx->job.diff / (256.0 * opt_difficulty));

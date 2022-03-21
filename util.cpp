@@ -2333,6 +2333,9 @@ void print_hash_tests(void)
 	x16r_hash(&hash[0], &buf[0]);
 	printpfx("X16R", hash);
 
+	x16rv2_hash(&hash[0], &buf[0]);
+	printpfx("X16Rv2", hash);
+
 	x16s_hash(&hash[0], &buf[0]);
 	printpfx("X16S", hash);
 
