@@ -301,6 +301,7 @@ Options:\n\
 			x15         X15\n\
 			x17         X17\n\
 			x16r        X16R\n\
+			x16rt       X16RT\n\
 			x16rv2      X16R V2\n\
 			x16s        X16S\n\
 			x21s        X21S\n\
@@ -1747,6 +1748,7 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_BITCORE:
 		case ALGO_BMW512:
 		case ALGO_X16R:
+		case ALGO_X16RT:
 		case ALGO_X16RV2:
 		case ALGO_X16S:
 		case ALGO_X21S:
@@ -2558,6 +2560,9 @@ static void *miner_thread(void *userdata)
 			break;
 		case ALGO_X16R:
 			rc = scanhash_x16r(thr_id, &work, max_nonce, &hashes_done);
+			break;
+		case ALGO_X16RT:
+			rc = scanhash_x16rt(thr_id, &work, max_nonce, &hashes_done);
 			break;
 		case ALGO_X16RV2:
 			rc = scanhash_x16rv2(thr_id, &work, max_nonce, &hashes_done);
