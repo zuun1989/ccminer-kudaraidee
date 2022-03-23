@@ -238,10 +238,11 @@ Usage: " PROGRAM_NAME " [OPTIONS]\n\
 Options:\n\
   -a, --algo=ALGO       specify the hash algorithm to use\n\
 			allium		Lyra2 blake2s\n\
+			anime		Animecoin\n\
 			heavyhash	oBTC coin\n\
-			bastion     Hefty bastion\n\
-			bitcore     Timetravel-10\n\
-			blake       Blake 256 (SFR)\n\
+			bastion		Hefty bastion\n\
+			bitcore		Timetravel-10\n\
+			blake		Blake 256 (SFR)\n\
 			blake2s     Blake2-S 256 (NEVA)\n\
 			blakecoin   Fast Blake 256 (8 rounds)\n\
 			bmw         BMW 256\n\
@@ -2467,6 +2468,9 @@ static void *miner_thread(void *userdata)
 		case ALGO_ALLIUM:
 			rc = scanhash_allium(thr_id, &work, max_nonce, &hashes_done);
 			break;
+		case ALGO_ANIME:
+			rc = scanhash_anime(thr_id, &work, max_nonce, &hashes_done);
+			break;
 		case ALGO_HEAVYHASH:
 			rc = scanhash_heavyhash(thr_id, &work, max_nonce, &hashes_done);
 			break;
@@ -2631,6 +2635,7 @@ static void *miner_thread(void *userdata)
 			/* hashrate factors for some algos */
 			double rate_factor = 1.0;
 			switch (opt_algo) {
+				case ALGO_ANIME:
 				case ALGO_JACKPOT:
 				case ALGO_QUARK:
 					// to stay comparable to other ccminer forks or pools

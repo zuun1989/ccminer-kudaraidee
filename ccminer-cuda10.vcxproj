@@ -513,6 +513,7 @@
     </CudaCompile>
     <CudaCompile Include="quark\cuda_skein512.cu">
     </CudaCompile>
+    <CudaCompile Include="quark\animecoin.cu" />
     <CudaCompile Include="quark\quarkcoin.cu" />
     <CudaCompile Include="quark\nist5.cu" />
     <CudaCompile Include="qubit\deep.cu" />

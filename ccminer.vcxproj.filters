@@ -551,6 +551,9 @@
     <ClInclude Include="quark\cuda_quark_blake512_sp.cuh">
       <Filter>Source Files\CUDA\quark</Filter>
     </ClInclude>
+    <CudaCompile Include="quark\animecoin.cu">
+      <Filter>Source Files\CUDA\quark</Filter>
+    </CudaCompile>
     <ClInclude Include="quark\cuda_bmw512_sm3.cuh">
       <Filter>Source Files\CUDA\quark</Filter>
     </ClInclude>
