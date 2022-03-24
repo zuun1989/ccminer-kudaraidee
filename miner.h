@@ -387,7 +387,6 @@ extern void free_skunk(int thr_id);
 extern void free_s3(int thr_id);
 extern void free_timetravel(int thr_id);
 extern void free_tribus(int thr_id);
-extern void free_bitcore(int thr_id);
 extern void free_vanilla(int thr_id);
 extern void free_veltor(int thr_id);
 extern void free_whirl(int thr_id);
