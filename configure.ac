@@ -1,4 +1,4 @@
-AC_INIT([ccminer-kudaraidee], [1.1.0], [], [ccminer-kudaraidee], [https://github.com/kudaraidee/ccminer])
+AC_INIT([ccminer-kudaraidee], [1.2.0], [], [ccminer-kudaraidee], [https://github.com/kudaraidee/ccminer])
 
 AC_PREREQ([2.59c])
 AC_CANONICAL_SYSTEM
