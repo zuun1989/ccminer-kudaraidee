@@ -52,8 +52,9 @@ void keccak512_cuda_hash_80(const int thr_id, const uint32_t threads, const uint
 void cubehash512_setBlock_80(int thr_id, uint32_t* endiandata);
 void cubehash512_cuda_hash_80(const int thr_id, const uint32_t threads, const uint32_t startNonce, uint32_t *d_hash);
 
-void x11_shavite512_setBlock_80(void *pdata);
-void x11_shavite512_cpu_hash_80(int thr_id, uint32_t threads, uint32_t startNonce, uint32_t *d_hash, int order);
+void x16_shavite512_setBlock_80(void *pdata);
+void x16_shavite512_cpu_hash_80(int thr_id, uint32_t threads, uint32_t startNonce, uint32_t *d_hash, int order);
+
 
 void x16_shabal512_setBlock_80(void *pdata);
 void x16_shabal512_cuda_hash_80(int thr_id, const uint32_t threads, const uint32_t startNonce, uint32_t *d_hash);

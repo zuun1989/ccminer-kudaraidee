@@ -123,7 +123,7 @@ extern "C" int scanhash_hash0x10(int thr_id, struct work* work, uint32_t max_non
 		quark_jh512_cpu_init(thr_id, throughput);
 		x11_luffa512_cpu_init(thr_id, throughput);
 		quark_keccak512_cpu_init(thr_id, throughput);
-		x11_cubehash512_cpu_init(thr_id, throughput);
+//		x11_cubehash512_cpu_init(thr_id, throughput);
 		if (x11_simd512_cpu_init(thr_id, throughput) != 0) {
 			return 0;
 		}
@@ -159,9 +159,9 @@ extern "C" int scanhash_hash0x10(int thr_id, struct work* work, uint32_t max_non
 		TRACE("jh512  :");
 		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
 		TRACE("luffa+c:");
-		quark_keccak512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		quark_keccak512_cpu_hash_64(thr_id, throughput, NULL, d_hash[thr_id]); order++;
 		TRACE("keccak :");
-		x11_cubehash512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash[thr_id]); order++;
 		TRACE("cubehash :");
 		x11_simd512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
 		TRACE("simd   :");

@@ -340,7 +340,7 @@ extern "C" int scanhash_x16r(int thr_id, struct work* work, uint32_t max_nonce, 
 			cubehash512_setBlock_80(thr_id, endiandata);
 			break;
 		case SHAVITE:
-			x11_shavite512_setBlock_80((void*)endiandata);
+			x16_shavite512_setBlock_80((void*)endiandata);
 			break;
 		case SIMD:
 			x16_simd512_setBlock_80((void*)endiandata);
@@ -409,7 +409,7 @@ extern "C" int scanhash_x16r(int thr_id, struct work* work, uint32_t max_nonce, 
 				TRACE("cube 80:");
 				break;
 			case SHAVITE:
-				x11_shavite512_cpu_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id], order++);
+				x16_shavite512_cpu_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id], order++);
 				TRACE("shavite:");
 				break;
 			case SIMD:
@@ -465,7 +465,7 @@ extern "C" int scanhash_x16r(int thr_id, struct work* work, uint32_t max_nonce, 
 				TRACE("jh512  :");
 				break;
 			case KECCAK:
-				quark_keccak512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+				quark_keccak512_cpu_hash_64(thr_id, throughput, NULL, d_hash[thr_id]); order++;
 				TRACE("keccak :");
 				break;
 			case SKEIN:
@@ -477,7 +477,7 @@ extern "C" int scanhash_x16r(int thr_id, struct work* work, uint32_t max_nonce, 
 				TRACE("luffa  :");
 				break;
 			case CUBEHASH:
-				x11_cubehash512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+				x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash[thr_id]); order++;
 				TRACE("cube   :");
 				break;
 			case SHAVITE:
@@ -885,7 +885,7 @@ extern "C" int scanhash_x16rt(int thr_id, struct work* work, uint32_t max_nonce,
                         cubehash512_setBlock_80(thr_id, endiandata);
                         break;
                 case SHAVITE:
-                        x11_shavite512_setBlock_80((void*)endiandata);
+                        x16_shavite512_setBlock_80((void*)endiandata);
                         break;
                 case SIMD:
                         x16_simd512_setBlock_80((void*)endiandata);
@@ -950,10 +950,10 @@ extern "C" int scanhash_x16rt(int thr_id, struct work* work, uint32_t max_nonce,
                                 qubit_luffa512_cpu_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id], order++);
                                 break;
                         case CUBEHASH:
-                                cubehash512_cuda_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id]); order++;
+								cubehash512_cuda_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id]); order++;
                                 break;
                         case SHAVITE:
-                                x11_shavite512_cpu_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id], order++);
+								x16_shavite512_cpu_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id], order++);
                                 break;
                         case SIMD:
                                 x16_simd512_cuda_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id]); order++;
@@ -999,7 +999,7 @@ extern "C" int scanhash_x16rt(int thr_id, struct work* work, uint32_t max_nonce,
                                 quark_jh512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
                                 break;
                         case KECCAK:
-                                quark_keccak512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+                                quark_keccak512_cpu_hash_64(thr_id, throughput, NULL, d_hash[thr_id]); order++;
 								break;
                         case SKEIN:
 								quark_skein512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
@@ -1008,7 +1008,7 @@ extern "C" int scanhash_x16rt(int thr_id, struct work* work, uint32_t max_nonce,
 								x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
                                 break;
                         case CUBEHASH:
-                                x11_cubehash512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+                                x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash[thr_id]); order++;
                                 break;
                         case SHAVITE:
 								x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
