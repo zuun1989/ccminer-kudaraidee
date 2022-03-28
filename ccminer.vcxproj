@@ -371,6 +371,7 @@
     <ClInclude Include="crypto\xmr-rpc.h" />
     <ClInclude Include="cuda_groestlcoin.h" />
     <ClInclude Include="cuda_helper.h" />
+    <ClInclude Include="cuda_helper_alexis.h" />
     <ClInclude Include="cuda_vector_uint2x4.h" />
     <ClInclude Include="elist.h" />
     <ClInclude Include="heavy\heavy.h" />
@@ -431,6 +432,8 @@
     <CudaCompile Include="sha256\sha256d.cu" />
     <CudaCompile Include="sha256\cuda_sha256t.cu" />
     <CudaCompile Include="sha256\sha256t.cu" />
+    <CudaCompile Include="x11\cuda_x11_echo_sp.cu" />
+    <CudaCompile Include="x11\cuda_x11_shavite512_sp.cu" />
     <CudaCompile Include="zr5.cu" />
     <CudaCompile Include="heavy\cuda_blake512.cu">
     </CudaCompile>
@@ -549,7 +552,9 @@
     </CudaCompile>
     <CudaCompile Include="tribus\tribus.cu" />
     <ClInclude Include="x11\cuda_x11_aes.cuh" />
+    <ClInclude Include="x11\cuda_x11_aes_sp.cuh" />
     <CudaCompile Include="x11\cuda_x11_cubehash512.cu" />
+    <CudaCompile Include="x11\cuda_x11_cubehash512_80.cu" />
     <CudaCompile Include="x11\cuda_x11_echo.cu">
     </CudaCompile>
     <CudaCompile Include="x11\cuda_x11_luffa512.cu" />
@@ -557,7 +562,7 @@
       <MaxRegCount>76</MaxRegCount>
     </CudaCompile>
     <CudaCompile Include="x11\cuda_x11_shavite512.cu">
-      <MaxRegCount>128</MaxRegCount>
+      <MaxRegCount>80</MaxRegCount>
     </CudaCompile>
     <ClInclude Include="x11\cuda_x11_simd512_func.cuh" />
     <CudaCompile Include="x11\cuda_x11_simd512.cu">
