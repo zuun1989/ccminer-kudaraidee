@@ -5,7 +5,7 @@
 
 #include <miner.h>
 #include <cuda_helper.h>
-#include <openssl/sha.h>
+#include <includes-x64/openssl/sha.h>
 
 // CPU Check
 extern "C" void sha256t_hash(void *output, const void *input)

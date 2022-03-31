@@ -5,10 +5,20 @@
 #include <cuda_runtime.h>
 
 #ifdef __INTELLISENSE__
+#define NOASM
 /* reduce vstudio warnings (__byteperm, blockIdx...) */
 #include <device_functions.h>
 #include <device_launch_parameters.h>
 #define __launch_bounds__(max_tpb, min_blocks)
+#define __CUDA_ARCH__ 610
+
+uint32_t __byte_perm(uint32_t x, uint32_t y, uint32_t z);
+uint32_t __shfl_sync(uint32_t w, uint32_t x, uint32_t y, uint32_t z);
+uint32_t atomicExch(uint32_t *x, uint32_t y);
+uint32_t atomicAdd(uint32_t *x, uint32_t y);
+void __syncthreads(void);
+void __threadfence(void);
+#define __ldg(x) (*(x))
 #endif
 
 #include <stdbool.h>
@@ -19,12 +29,14 @@
 #define UINT32_MAX UINT_MAX
 #endif
 
+
 #ifndef MAX_GPUS
 #define MAX_GPUS 16
 #endif
 
 extern "C" short device_map[MAX_GPUS];
 extern "C"  long device_sm[MAX_GPUS];
+extern cudaStream_t gpustream[MAX_GPUS];
 extern "C" short device_mpcount[MAX_GPUS];
 extern int cuda_arch[MAX_GPUS];
 
@@ -37,8 +49,6 @@ extern uint32_t cuda_check_hash(int thr_id, uint32_t threads, uint32_t startNoun
 extern uint32_t cuda_check_hash_suppl(int thr_id, uint32_t threads, uint32_t startNounce, uint32_t *d_inputHash, uint8_t numNonce);
 extern cudaError_t MyStreamSynchronize(cudaStream_t stream, int situation, int thr_id);
 extern void cudaReportHardwareFailure(int thr_id, cudaError_t error, const char* func);
-extern __device__ __device_builtin__ void __syncthreads(void);
-extern __device__ __device_builtin__ void __threadfence(void);
 
 #ifndef __CUDA_ARCH__
 // define blockDim and threadIdx for host
@@ -718,14 +728,29 @@ uint2 xor3x(const uint2 a,const uint2 b,const uint2 c) {
 	return result;
 }
 
-// CUDA 9+ deprecated functions warnings (new mask param)
-#if CUDA_VERSION >= 9000 && __CUDA_ARCH__ >= 300
-#undef __shfl
-#define __shfl(var, srcLane, width)  __shfl_sync(0xFFFFFFFFu, var, srcLane, width)
-#undef __shfl_up
-#define __shfl_up(var, delta, width) __shfl_up_sync(0xFFFFFFFF, var, delta, width)
-#undef __any
-#define __any(p) __any_sync(0xFFFFFFFFu, p)
+// device asm 32 for pluck
+static __device__ __forceinline__
+uint32_t andor32(uint32_t a, uint32_t b, uint32_t c) {
+	uint32_t result;
+#ifndef NOASM
+	asm("{ .reg .u32 m,n,o;\n\t"
+		"and.b32 m,  %1, %2;\n\t"
+		" or.b32 n,  %1, %2;\n\t"
+		"and.b32 o,   n, %3;\n\t"
+		" or.b32 %0,  m, o ;\n\t"
+		"}\n\t"
+		: "=r"(result) : "r"(a), "r"(b), "r"(c));
+#else
+	result = ((a | b) & c) | (a & b);
+#endif
+	return result;
+}
+
+
+#if __CUDA_ARCH__ < 350
+#ifndef __ldg
+#define __ldg(x) (*(x))
+#endif
 #endif
 
 #endif // #ifndef CUDA_HELPER_H

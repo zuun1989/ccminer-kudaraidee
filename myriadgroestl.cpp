@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <cuda_runtime.h>
-#include <openssl/sha.h>
+#include <includes-x64/openssl/sha.h>
 
 #include "sph/sph_groestl.h"
 

@@ -64,6 +64,7 @@ ccminer_SOURCES	= elist.h miner.h compat.h \
 			  skunk/skunk.cu skunk/cuda_skunk.cu skunk/cuda_skunk_streebog.cu \
 			  sha256/sha256d.cu sha256/cuda_sha256d.cu sha256/sha256t.cu sha256/cuda_sha256t.cu \
 			  sia/sia.cu sia/sia-rpc.cpp sph/blake2b.c \
+			  BlueMidnightWish_opt.c SHA3api_ref.h \
 			  sph/bmw.c sph/blake.c sph/groestl.c sph/jh.c sph/keccak.c sph/skein.c \
 			  sph/cubehash.c sph/echo.c sph/luffa.c sph/sha2.c sph/shavite.c sph/simd.c \
 			  sph/hamsi.c sph/hamsi_helper.c sph/streebog.c sph/tiger.c \
@@ -86,7 +87,9 @@ ccminer_SOURCES	= elist.h miner.h compat.h \
 			  x17/x17.cu x17/hmq17.cu x17/cuda_x17_haval256.cu x17/cuda_x17_sha512.cu \
 			  x11/phi.cu x11/cuda_streebog_maxwell.cu \
 			  x11/c11.cu x11/s3.cu x11/sib.cu x11/veltor.cu x11/cuda_streebog.cu x11/0x10.cu \
-			  x21/x21s.cu x21/cuda_sha256.cu x21/cuda_tiger192.cu 
+			  x21/x21s.cu x21/cuda_sha256.cu x21/cuda_tiger192.cu \
+			  yescrypt/yescrypt.cu yescrypt/cuda_yescrypt.cu \
+			  sph/yescrypt.h sph/yescrypt-platform.h sph/yescrypt-opt.c sph/yescrypt-common.c \			  
 			  
 # scrypt
 ccminer_SOURCES += scrypt.cpp scrypt-jane.cpp \
@@ -101,7 +104,7 @@ nvml_libs = -ldl
 endif
 
 if HAVE_WINDOWS
-ccminer_SOURCES += compat/winansi.c
+ccminer_SOURCES += compat/winansi.cpp
 endif
 
 ccminer_LDFLAGS  = $(PTHREAD_FLAGS) @CUDA_LDFLAGS@
@@ -123,8 +126,8 @@ nvcc_ARCH :=
 nvcc_ARCH += -gencode=arch=compute_86,code=\"sm_86,compute_86\"
 nvcc_ARCH += -gencode=arch=compute_75,code=\"sm_75,compute_75\"
 nvcc_ARCH += -gencode=arch=compute_61,code=\"sm_61,compute_61\"
-#nvcc_ARCH += -gencode=arch=compute_52,code=\"sm_52,compute_52\"
-#nvcc_ARCH += -gencode=arch=compute_50,code=\"sm_50,compute_50\"
+nvcc_ARCH += -gencode=arch=compute_52,code=\"sm_52,compute_52\"
+nvcc_ARCH += -gencode=arch=compute_50,code=\"sm_50,compute_50\"
 #nvcc_ARCH += -gencode=arch=compute_35,code=\"sm_35,compute_35\"
 #nvcc_ARCH += -gencode=arch=compute_30,code=\"sm_30,compute_30\"
 

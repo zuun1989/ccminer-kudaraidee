@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <openssl/sha.h>
+#include <includes-x64/openssl/sha.h>
 #include <cuda.h>
 #include <map>
 

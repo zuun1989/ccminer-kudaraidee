@@ -8,7 +8,7 @@
 #include "miner.h"
 #include "cuda_helper.h"
 
-#include <openssl/sha.h>
+#include <includes-x64/openssl/sha.h>
 
 static uint32_t *d_hash[MAX_GPUS];
 static __thread bool sm5 = true;
