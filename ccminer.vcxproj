@@ -601,6 +601,7 @@
     <CudaCompile Include="x16\cuda_x16_echo512.cu" />
     <CudaCompile Include="x16\cuda_x16_fugue512.cu" />
     <CudaCompile Include="x16\cuda_x16_shabal512.cu" />
+    <CudaCompile Include="x16\cuda_x16_shavite512.cu" />
     <CudaCompile Include="x16\cuda_x16_simd512_80.cu" />
     <CudaCompile Include="x16\cuda_x16_echo512_64.cu">
       <CodeGeneration>compute_50,sm_50;compute_52,sm_52</CodeGeneration>

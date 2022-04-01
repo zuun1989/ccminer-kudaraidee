@@ -7,7 +7,7 @@ SP - May 2018
 #include "cuda_helper_alexis.h"
 #include "cuda_vectors_alexis.h"
 
-#define TPB80 128
+#define TPB80 256
 
 #define TPB52_64 192
 #define TPB50_64 192

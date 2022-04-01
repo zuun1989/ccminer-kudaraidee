@@ -346,7 +346,7 @@ extern "C" int scanhash_x16rv2(int thr_id, struct work* work, uint32_t max_nonce
 			cubehash512_setBlock_80(thr_id, endiandata);
 			break;
 		case SHAVITE:
-			x11_shavite512_setBlock_80((void*)endiandata);
+			x16_shavite512_setBlock_80((void*)endiandata);
 			break;
 		case SIMD:
 			x16_simd512_setBlock_80((void*)endiandata);
@@ -417,7 +417,7 @@ extern "C" int scanhash_x16rv2(int thr_id, struct work* work, uint32_t max_nonce
 				TRACE("cube 80:");
 				break;
 			case SHAVITE:
-				x11_shavite512_cpu_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id], order++);
+				x16_shavite512_cpu_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id], order++);
 				TRACE("shavite:");
 				break;
 			case SIMD:
