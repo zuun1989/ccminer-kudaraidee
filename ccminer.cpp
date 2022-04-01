@@ -26,7 +26,6 @@
 #include <openssl/sha.h>
 
 #ifdef WIN32
-#include <winsock2.h>
 #include <windows.h>
 #include <stdint.h>
 #else
@@ -232,12 +231,6 @@ char *opt_api_mcast_code = strdup(API_MCAST_CODE);
 char *opt_api_mcast_des = strdup("");
 int opt_api_mcast_port = 4068;
 
-char *yescrypt_key = NULL;
-size_t yescrypt_key_len = 0;
-uint32_t yescrypt_param_N = 0;
-uint32_t yescrypt_param_r = 0;
-uint32_t yescrypt_param_p = 0;
-
 bool opt_stratum_stats = false;
 
 static char const usage[] = "\
@@ -313,7 +306,6 @@ Options:\n\
 			x16rv2		X16R V2\n\
 			x16s		X16S\n\
 			x21s		X21S\n\
-			yescrypt	Globlboost-Y (BSTY) or any params\n\
 			wildkeccak	Boolberry\n\
 			zr5		ZR5 (ZiftrCoin)\n\
   -d, --devices         Comma separated list of CUDA devices to use.\n\
@@ -341,8 +333,6 @@ Options:\n\
   -s, --scantime=N      upper bound on time spent scanning current work when\n\
                           long polling is unavailable, in seconds (default: 10)\n\
       --submit-stale    ignore stale jobs checks, may create more rejected shares\n\
-	  --yescrypt-param  set params(N,r,p) for yescrypt\n\
-	  --yescrypt-key    set key for yescrypt\n\
   -n, --ndevs           list cuda devices\n\
   -N, --statsavg        number of samples used to compute hashrate (default: 30)\n\
       --no-gbt          disable getblocktemplate support (height check in solo)\n\
@@ -485,8 +475,6 @@ struct option options[] = {
 	{ "diff-multiplier", 1, NULL, 'm' },
 	{ "diff-factor", 1, NULL, 'f' },
 	{ "diff", 1, NULL, 'f' }, // compat
-	{ "yescrypt-param", 1, NULL, 1084 },
-	{ "yescrypt-key", 1, NULL, 1085 },
 	{ 0, 0, 0, 0 }
 };
 
@@ -1746,7 +1734,6 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_XAYA:
 		case ALGO_SCRYPT:
 		case ALGO_SCRYPT_JANE:
-		case ALGO_YESCRYPT:
 			work_set_target(work, sctx->job.diff / (65536.0 * opt_difficulty));
 			break;
 		case ALGO_DMD_GR:
@@ -2325,7 +2312,6 @@ static void *miner_thread(void *userdata)
 			case ALGO_SIB:
 			case ALGO_SCRYPT:
 			case ALGO_VELTOR:
-			case ALGO_YESCRYPT:
 				minmax = 0x80000;
 				break;
 			case ALGO_CRYPTOLIGHT:
@@ -2593,9 +2579,6 @@ static void *miner_thread(void *userdata)
 			break;
 		case ALGO_X21S:
 			rc = scanhash_x21s(thr_id, &work, max_nonce, &hashes_done);
-			break;
-		case ALGO_YESCRYPT:
-			rc = scanhash_yescrypt(thr_id, &work, max_nonce, &hashes_done);
 			break;
 		case ALGO_ZR5:
 			rc = scanhash_zr5(thr_id, &work, max_nonce, &hashes_done);

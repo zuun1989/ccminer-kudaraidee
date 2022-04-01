@@ -351,10 +351,6 @@
     <ClCompile Include="heavyhash/heavyhash-gate.c" />
     <ClCompile Include="heavyhash/keccak_tiny.c" />
     <ClCompile Include="sph\sha3d.c" />
-    <ClCompile Include="BlueMidnightWish_opt.c" />
-    <ClCompile Include="sph\sha256_Y.c" />
-    <ClCompile Include="sph\yescrypt-common.c" />
-    <ClCompile Include="sph\yescrypt-opt.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="algos.h">
@@ -615,10 +611,6 @@
       <Filter>Header Files\CUDA</Filter>
     </ClInclude>
     <ClInclude Include="sph\sph_sha3d.h" />
-    <ClInclude Include="SHA3api_ref.h" />
-    <ClInclude Include="sph\sysendian.h" />
-    <ClInclude Include="sph\yescrypt-platform.h" />
-    <ClInclude Include="sph\yescrypt.h" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="cuda.cpp">
@@ -726,7 +718,7 @@
     <CudaCompile Include="x11\cuda_x11_echo_sp.cu">
       <Filter>Source Files\CUDA\x11</Filter>
     </CudaCompile>
-    <CudaCompile Include="x11\cuda_x11_luffa512.cu">
+   <CudaCompile Include="x11\cuda_x11_luffa512.cu">
       <Filter>Source Files\CUDA\x11</Filter>
     </CudaCompile>
     <CudaCompile Include="x11\cuda_x11_luffa512_Cubehash.cu">
@@ -1030,8 +1022,6 @@
     <CudaCompile Include="heavyhash/cuda_heavyhash.cu" />
     <CudaCompile Include="Algo256\sha3d.cu" />
     <CudaCompile Include="Algo256\cuda_keccak256_sha3d.cu" />
-    <CudaCompile Include="yescrypt\cuda_yescrypt.cu" />
-    <CudaCompile Include="yescrypt\yescrypt.cu" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\ccminer.ico">

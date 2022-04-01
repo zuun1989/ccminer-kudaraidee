@@ -22,8 +22,9 @@
    supported. */
 
 #ifdef _MSC_VER
-#ifndef __cplusplus
 #define inline __inline
+#if !defined(HAVE_STRUCT_TIMESPEC) && _MSC_VER >= 1900
+#define HAVE_STRUCT_TIMESPEC
 #endif
 #endif
 

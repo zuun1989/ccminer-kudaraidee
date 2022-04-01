@@ -10,9 +10,9 @@ extern "C" {
 #include <stdbool.h>
 #include <inttypes.h>
 #include <sys/time.h>
-#include <includes/pthreads/pthread.h>
+#include <pthread.h>
 #include <jansson.h>
-#include <includes/curl/curl.h>
+#include <curl/curl.h>
 
 #ifdef _MSC_VER
 #undef HAVE_ALLOCA_H
@@ -337,7 +337,6 @@ extern int scanhash_x16s(int thr_id, struct work* work, uint32_t max_nonce, unsi
 extern int scanhash_x17(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_x21s(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_zr5(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
-extern int scanhash_yescrypt(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
 
 /* free device allocated memory per algo */
 void algo_free_all(int thr_id);
@@ -955,7 +954,6 @@ void x17hash(void *output, const void *input);
 void x21s_hash(void *output, const void *input);
 void wildkeccak_hash(void *output, const void *input, uint64_t* scratchpad, uint64_t ssize);
 void zr5hash(void *output, const void *input);
-void yescrypt_hash(void *output, const void *input);
 void zr5hash_pok(void *output, uint32_t *pdata);
 
 #ifdef __cplusplus
