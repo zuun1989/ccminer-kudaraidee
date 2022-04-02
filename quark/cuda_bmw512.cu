@@ -632,7 +632,7 @@ void quark_bmw512_gpu_hash_64_final(uint32_t threads, uint64_t *const __restrict
 __host__
 void quark_bmw512_cpu_init(int thr_id, uint32_t threads)
 {
-
+	cuda_get_arch(thr_id);
 }
 
 
