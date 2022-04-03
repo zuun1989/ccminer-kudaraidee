@@ -237,6 +237,7 @@ static char const usage[] = "\
 Usage: " PROGRAM_NAME " [OPTIONS]\n\
 Options:\n\
   -a, --algo=ALGO       specify the hash algorithm to use\n\
+			0x10		ChainOX\n\
 			allium		Lyra2 blake2s\n\
 			anime		Animecoin\n\
 			heavyhash	oBTC coin\n\
