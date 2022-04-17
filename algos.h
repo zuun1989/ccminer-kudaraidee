@@ -21,6 +21,7 @@ enum sha_algos {
 	ALGO_EQUIHASH,
 	ALGO_FRESH,
 	ALGO_FUGUE256,		/* Fugue256 */
+	ALGO_GOSTCOIN,
 	ALGO_GROESTL,
 	ALGO_HEAVY,		/* Heavycoin hash */
 	ALGO_HMQ1725,
@@ -102,6 +103,7 @@ static const char *algo_names[] = {
 	"equihash",
 	"fresh",
 	"fugue256",
+	"gostcoin",
 	"groestl",
 	"heavy",
 	"hmq1725",
@@ -205,6 +207,8 @@ static inline int algo_to_int(char* arg)
 			i = ALGO_SHA256D;
 		else if (!strcasecmp("sha256", arg))
 			i = ALGO_SHA256D;
+		else if (!strcasecmp("gostcoin", arg))
+			i = ALGO_GOSTCOIN;
 		else if (!strcasecmp("thorsriddle", arg))
 			i = ALGO_VELTOR;
 		else if (!strcasecmp("timetravel10", arg))

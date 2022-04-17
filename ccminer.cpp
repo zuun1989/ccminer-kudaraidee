@@ -257,6 +257,7 @@ Options:\n\
 			dmd-gr		Diamond-Groestl\n\
 			fresh		Freshcoin (shavite 80)\n\
 			fugue256	Fuguecoin\n\
+			gostcoin	Double GOST R 34.11\n\
 			groestl		Groestlcoin\n"
 #ifdef WITH_HEAVY_ALGO
 "			heavy       Heavycoin\n"
@@ -1600,6 +1601,9 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_WHIRLCOIN:
 			SHA256((uchar*)sctx->job.coinbase, sctx->job.coinbase_size, (uchar*)merkle_root);
 			break;
+		case ALGO_GOSTCOIN:
+			gostd(merkle_root, sctx->job.coinbase, (int)sctx->job.coinbase_size);
+			break;
 		case ALGO_WHIRLPOOL:
 		default:
 			sha256d(merkle_root, sctx->job.coinbase, (int)sctx->job.coinbase_size);
@@ -1607,6 +1611,11 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 
 	for (i = 0; i < sctx->job.merkle_count; i++) {
 		memcpy(merkle_root + 32, sctx->job.merkle[i], 32);
+		if (opt_algo == ALGO_GOSTCOIN)
+		{
+			memcpy(merkle_root + 32, merkle_root, 32);
+			gostd(merkle_root, merkle_root, 64);
+		}
 #ifdef WITH_HEAVY_ALGO
 		if (opt_algo == ALGO_HEAVY || opt_algo == ALGO_MJOLLNIR)
 			heavycoin_hash(merkle_root, merkle_root, 64);
@@ -2299,6 +2308,7 @@ static void *miner_thread(void *userdata)
 			case ALGO_X13:
 			case ALGO_WHIRLCOIN:
 			case ALGO_WHIRLPOOL:
+			case ALGO_GOSTCOIN:
 				minmax = 0x400000;
 				break;
 			case ALGO_X14:
@@ -2409,6 +2419,9 @@ static void *miner_thread(void *userdata)
 			break;
 		case ALGO_FUGUE256:
 			rc = scanhash_fugue256(thr_id, &work, max_nonce, &hashes_done);
+			break;
+		case ALGO_GOSTCOIN:
+			rc = scanhash_gostd(thr_id, &work, max_nonce, &hashes_done);
 			break;
 
 		case ALGO_GROESTL:

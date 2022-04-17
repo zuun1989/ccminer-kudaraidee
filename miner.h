@@ -267,6 +267,7 @@ json_t * json_load_url(char* cfg_url, json_error_t *err);
 void sha256_init(uint32_t *state);
 void sha256_transform(uint32_t *state, const uint32_t *block, int swap);
 void sha256d(unsigned char *hash, const unsigned char *data, int len);
+void gostd(void *output, const void *input, size_t len);
 
 #define HAVE_SHA256_4WAY 0
 #define HAVE_SHA256_8WAY 0
@@ -289,6 +290,7 @@ extern int scanhash_deep(int thr_id, struct work* work, uint32_t max_nonce, unsi
 extern int scanhash_keccak256(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_fresh(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_fugue256(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_gostd(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_groestlcoin(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_hmq17(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_heavy(int thr_id,struct work *work, uint32_t max_nonce, unsigned long *hashes_done, uint32_t maxvote, int blocklen);
@@ -357,6 +359,7 @@ extern void free_deep(int thr_id);
 extern void free_keccak256(int thr_id);
 extern void free_fresh(int thr_id);
 extern void free_fugue256(int thr_id);
+extern void free_gostd(int thr_id);
 extern void free_groestlcoin(int thr_id);
 extern void free_heavy(int thr_id);
 extern void free_hmq17(int thr_id);
@@ -905,6 +908,7 @@ void deephash(void *state, const void *input);
 void luffa_hash(void *state, const void *input);
 void fresh_hash(void *state, const void *input);
 void fugue256_hash(unsigned char* output, const unsigned char* input, int len);
+void gostd_hash(void *output, const void *input);
 void heavycoin_hash(unsigned char* output, const unsigned char* input, int len);
 void hmq17hash(void *output, const void *input);
 void hsr_hash(void *output, const void *input);
