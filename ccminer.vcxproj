@@ -329,6 +329,7 @@
     <ClCompile Include="sph\jh.c" />
     <ClCompile Include="sph\keccak.c" />
     <ClCompile Include="sph\sha3d.c" />
+    <ClCompile Include="sph\sha512_256.c" />
     <ClCompile Include="sph\luffa.c" />
     <ClCompile Include="sph\ripemd.c" />
     <ClCompile Include="sph\sph_sha2.c" />
@@ -408,6 +409,7 @@
     <ClInclude Include="sph\sph_hamsi.h" />
     <ClInclude Include="sph\sph_types.h" />
     <ClInclude Include="sph\sph_whirlpool.h" />
+    <ClInclude Include="sph\sha512_256.h" />
     <ClInclude Include="uint256.h" />
     <ClInclude Include="lyra2\Lyra2.h" />
     <ClInclude Include="lyra2\Sponge.h" />
@@ -432,6 +434,8 @@
     <CudaCompile Include="sha256\sha256d.cu" />
     <CudaCompile Include="sha256\cuda_sha256t.cu" />
     <CudaCompile Include="sha256\sha256t.cu" />
+    <CudaCompile Include="sha512_256\cuda_sha512_256d.cu" />
+    <CudaCompile Include="sha256\sha512_256d.cu" />
     <CudaCompile Include="x11\cuda_x11_echo_sp.cu" />
     <CudaCompile Include="x11\cuda_x11_shavite512_sp.cu" />
     <CudaCompile Include="zr5.cu" />
