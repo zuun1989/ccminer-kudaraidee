@@ -52,6 +52,7 @@ enum sha_algos {
 	ALGO_SHA256D,
 	ALGO_SHA256T,
 	ALGO_SHA3D,
+	ALGO_SHA512256D,
 	ALGO_SIA,
 	ALGO_SIB,
 	ALGO_SKEIN,
@@ -207,6 +208,12 @@ static inline int algo_to_int(char* arg)
 			i = ALGO_SHA256D;
 		else if (!strcasecmp("sha256", arg))
 			i = ALGO_SHA256D;
+		else if (!strcasecmp("sha512256d", arg))
+			i = ALGO_SHA512256D;
+		else if (!strcasecmp("rad", arg))
+			i = ALGO_SHA512256D;
+		else if (!strcasecmp("sha512_256d", arg))
+			i = ALGO_SHA512256D;
 		else if (!strcasecmp("gostcoin", arg))
 			i = ALGO_GOSTCOIN;
 		else if (!strcasecmp("thorsriddle", arg))
