@@ -1024,6 +1024,11 @@
     <CudaCompile Include="heavyhash/cuda_heavyhash.cu" />
     <CudaCompile Include="Algo256\sha3d.cu" />
     <CudaCompile Include="Algo256\cuda_keccak256_sha3d.cu" />
+    <CudaCompile Include="sha512_256\cuda_sha512_256d.cu" />
+    <CudaCompile Include="sha512_256\sha512_256d.cu" />
+    <CudaCompile Include="gost\cuda_gosthash.cu" />
+    <CudaCompile Include="gost\gost.cu" />
+    <CudaCompile Include="x16\cuda_x16_shavite512.cu" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\ccminer.ico">
