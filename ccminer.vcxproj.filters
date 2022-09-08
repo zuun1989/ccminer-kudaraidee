@@ -351,6 +351,7 @@
     <ClCompile Include="heavyhash/heavyhash-gate.c" />
     <ClCompile Include="heavyhash/keccak_tiny.c" />
     <ClCompile Include="sph\sha3d.c" />
+    <ClCompile Include="sph\sha512_256.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="algos.h">
@@ -611,6 +612,7 @@
       <Filter>Header Files\CUDA</Filter>
     </ClInclude>
     <ClInclude Include="sph\sph_sha3d.h" />
+    <ClInclude Include="sph\sha512_256.h" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="cuda.cpp">
@@ -718,7 +720,7 @@
     <CudaCompile Include="x11\cuda_x11_echo_sp.cu">
       <Filter>Source Files\CUDA\x11</Filter>
     </CudaCompile>
-   <CudaCompile Include="x11\cuda_x11_luffa512.cu">
+    <CudaCompile Include="x11\cuda_x11_luffa512.cu">
       <Filter>Source Files\CUDA\x11</Filter>
     </CudaCompile>
     <CudaCompile Include="x11\cuda_x11_luffa512_Cubehash.cu">

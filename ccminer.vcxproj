@@ -21,13 +21,13 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{36DC07F9-A4A6-4877-A146-1B960083CF6F}</ProjectGuid>
     <RootNamespace>ccminer</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CLRSupport>false</CLRSupport>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
@@ -52,7 +52,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.6.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.7.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -435,7 +435,7 @@
     <CudaCompile Include="sha256\cuda_sha256t.cu" />
     <CudaCompile Include="sha256\sha256t.cu" />
     <CudaCompile Include="sha512_256\cuda_sha512_256d.cu" />
-    <CudaCompile Include="sha256\sha512_256d.cu" />
+    <CudaCompile Include="sha512_256\sha512_256d.cu" />
     <CudaCompile Include="x11\cuda_x11_echo_sp.cu" />
     <CudaCompile Include="x11\cuda_x11_shavite512_sp.cu" />
     <CudaCompile Include="zr5.cu" />
@@ -634,7 +634,7 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.6.targets" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.7.targets" />
   </ImportGroup>
   <!-- Copy the required dlls -->
   <Target Name="AfterBuild">
