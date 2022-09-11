@@ -58,6 +58,8 @@ enum sha_algos {
 	ALGO_SKEIN2,
 	ALGO_SKUNK,
 	ALGO_S3,
+	ALGO_NOVO,
+	ALGO_RAD,
 	ALGO_TIMETRAVEL,
 	ALGO_TRIBUS,
 	ALGO_BITCORE,
@@ -140,6 +142,8 @@ static const char *algo_names[] = {
 	"skein2",
 	"skunk",
 	"s3",
+	"novo",
+	"rad",
 	"timetravel",
 	"tribus",
 	"bitcore",
@@ -207,6 +211,8 @@ static inline int algo_to_int(char* arg)
 			i = ALGO_SHA256D;
 		else if (!strcasecmp("sha256", arg))
 			i = ALGO_SHA256D;
+		else if (!strcasecmp("sha512256d", arg))
+			i = ALGO_RAD;
 		else if (!strcasecmp("gostcoin", arg))
 			i = ALGO_GOSTCOIN;
 		else if (!strcasecmp("thorsriddle", arg))

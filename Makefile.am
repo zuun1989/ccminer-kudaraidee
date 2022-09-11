@@ -87,7 +87,8 @@ ccminer_SOURCES	= elist.h miner.h compat.h \
 			  x17/x17.cu x17/hmq17.cu x17/cuda_x17_haval256.cu x17/cuda_x17_sha512.cu \
 			  x11/phi.cu x11/cuda_streebog_maxwell.cu \
 			  x11/c11.cu x11/s3.cu x11/sib.cu x11/veltor.cu x11/cuda_streebog.cu x11/0x10.cu \
-			  x21/x21s.cu x21/cuda_sha256_2.cu x21/cuda_tiger192.cu 
+			  x21/x21s.cu x21/cuda_sha256_2.cu x21/cuda_tiger192.cu \
+			  novo.cpp cuda_novo.cu rad.cpp cuda_rad.cu
 			  
 # scrypt
 ccminer_SOURCES += scrypt.cpp scrypt-jane.cpp \

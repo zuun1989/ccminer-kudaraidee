@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{36DC07F9-A4A6-4877-A146-1B960083CF6F}</ProjectGuid>
     <RootNamespace>ccminer</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.18362.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration">
@@ -275,8 +275,8 @@
     <ClCompile Include="lyra2\Sponge.c" />
     <ClCompile Include="lyra2\Lyra2Z.c" />
     <ClCompile Include="heavyhash/heavyhash-gate.c" />
-    <ClCompile Include="heavyhash/keccak_tiny.c" /> 
-	<ClInclude Include="equi\eqcuda.hpp" />
+    <ClCompile Include="heavyhash/keccak_tiny.c" />
+    <ClInclude Include="equi\eqcuda.hpp" />
     <ClInclude Include="neoscrypt\neoscrypt.h" />
     <ClCompile Include="neoscrypt\neoscrypt.cpp" />
     <ClCompile Include="neoscrypt\neoscrypt-cpu.c" />
@@ -288,7 +288,7 @@
     <CudaCompile Include="Algo256\cuda_bmw.cu">
       <MaxRegCount>76</MaxRegCount>
     </CudaCompile>
-	<CudaCompile Include="allium.cu" />
+    <CudaCompile Include="allium.cu" />
     <CudaCompile Include="heavyhash/heavyhash.cu" />
     <CudaCompile Include="heavyhash/cuda_heavyhash.cu" />
     <CudaCompile Include="crypto\cryptolight.cu" />
@@ -412,7 +412,7 @@
     <ClInclude Include="lyra2\Lyra2.h" />
     <ClInclude Include="lyra2\Sponge.h" />
     <ClInclude Include="lyra2\Lyra2Z.h" />
-	<ClInclude Include="heavyhash/heavyhash-gate.h" />
+    <ClInclude Include="heavyhash/heavyhash-gate.h" />
     <ClInclude Include="heavyhash/keccak_tiny.h" />
     <ClInclude Include="quark\groestl_transf_quad.h" />
     <ClInclude Include="quark\groestl_functions_quad.h" />
@@ -435,6 +435,8 @@
     <CudaCompile Include="x11\cuda_x11_echo_sp.cu" />
     <CudaCompile Include="x11\cuda_x11_shavite512_sp.cu" />
     <CudaCompile Include="zr5.cu" />
+    <CudaCompile Include="gost\cuda_gosthash.cu" />
+    <CudaCompile Include="gost\gost.cu" />
     <CudaCompile Include="heavy\cuda_blake512.cu">
     </CudaCompile>
     <CudaCompile Include="heavy\cuda_combine.cu">
@@ -613,9 +615,13 @@
     <CudaCompile Include="x17\cuda_x17_sha512.cu">
       <MaxRegCount>80</MaxRegCount>
     </CudaCompile>
-	<CudaCompile Include="x21\x21s.cu" />
+    <CudaCompile Include="x21\x21s.cu" />
     <CudaCompile Include="x21\cuda_sha256_2.cu" />
     <CudaCompile Include="x21\cuda_tiger192.cu" />
+    <CudaCompile Include="novo.cpp" />
+    <CudaCompile Include="rad.cpp" />
+    <CudaCompile Include="cuda_novo.cu" />
+    <CudaCompile Include="cuda_rad.cu" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\ccminer.ico" />

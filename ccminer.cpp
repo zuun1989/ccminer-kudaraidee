@@ -275,11 +275,13 @@ Options:\n\
 			neoscrypt	FeatherCoin, Phoenix, UFO...\n\
 			neoscrypt-xaya	XAYA's version...\n\
 			nist5		NIST5 (TalkCoin)\n\
+			novo		Novo\n\
 			penta		Pentablake hash (5x Blake 512)\n\
 			phi		BHCoin\n\
 			polytimos	Politimos\n\
 			quark		Quark\n\
 			qubit		Qubit\n\
+			rad		Radiant\n\
 			sha256d		SHA256d (bitcoin)\n\
 			sha256t		SHA256 x3\n\
 			sha3d		Bsha3, Yilacoin and Kylacoin\n\
@@ -2532,6 +2534,12 @@ static void *miner_thread(void *userdata)
 			break;
 		case ALGO_S3:
 			rc = scanhash_s3(thr_id, &work, max_nonce, &hashes_done);
+			break;
+		case ALGO_NOVO:
+			rc = scanhash_novo(thr_id, &work, max_nonce, &hashes_done);
+			break;
+		case ALGO_RAD:
+			rc = scanhash_rad(thr_id, &work, max_nonce, &hashes_done);
 			break;
 		case ALGO_VANILLA:
 			rc = scanhash_vanilla(thr_id, &work, max_nonce, &hashes_done, 8);

@@ -351,7 +351,6 @@
     <ClCompile Include="heavyhash/heavyhash-gate.c" />
     <ClCompile Include="heavyhash/keccak_tiny.c" />
     <ClCompile Include="sph\sha3d.c" />
-    <ClCompile Include="sph\sha512_256.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="algos.h">
@@ -555,9 +554,6 @@
     <ClInclude Include="quark\cuda_quark_blake512_sp.cuh">
       <Filter>Source Files\CUDA\quark</Filter>
     </ClInclude>
-    <CudaCompile Include="quark\animecoin.cu">
-      <Filter>Source Files\CUDA\quark</Filter>
-    </CudaCompile>
     <ClInclude Include="quark\cuda_bmw512_sm3.cuh">
       <Filter>Source Files\CUDA\quark</Filter>
     </ClInclude>
@@ -612,7 +608,6 @@
       <Filter>Header Files\CUDA</Filter>
     </ClInclude>
     <ClInclude Include="sph\sph_sha3d.h" />
-    <ClInclude Include="sph\sha512_256.h" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="cuda.cpp">
@@ -674,6 +669,9 @@
     </CudaCompile>
     <CudaCompile Include="heavy\cuda_bastion.cu">
       <Filter>Source Files\CUDA\heavy</Filter>
+    </CudaCompile>
+    <CudaCompile Include="quark\animecoin.cu">
+      <Filter>Source Files\CUDA\quark</Filter>
     </CudaCompile>
     <CudaCompile Include="quark\cuda_bmw512.cu">
       <Filter>Source Files\CUDA\quark</Filter>
@@ -1024,6 +1022,13 @@
     <CudaCompile Include="heavyhash/cuda_heavyhash.cu" />
     <CudaCompile Include="Algo256\sha3d.cu" />
     <CudaCompile Include="Algo256\cuda_keccak256_sha3d.cu" />
+    <CudaCompile Include="x16\cuda_x16_shavite512.cu" />
+    <CudaCompile Include="gost\cuda_gosthash.cu" />
+    <CudaCompile Include="gost\gost.cu" />
+    <CudaCompile Include="novo.cpp" />
+    <CudaCompile Include="rad.cpp" />
+    <CudaCompile Include="cuda_novo.cu" />
+    <CudaCompile Include="cuda_rad.cu" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\ccminer.ico">

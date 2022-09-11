@@ -279,12 +279,6 @@
     <ClCompile Include="lyra2\Lyra2Z.c">
       <Filter>Source Files\sph</Filter>
     </ClCompile>
-    <ClCompile Include="scrypt.cpp">
-      <Filter>Source Files\CUDA\scrypt</Filter>
-    </ClCompile>
-    <ClCompile Include="scrypt-jane.cpp">
-      <Filter>Source Files\CUDA\scrypt</Filter>
-    </ClCompile>
     <ClCompile Include="neoscrypt\neoscrypt.cpp">
       <Filter>Source Files\neoscrypt</Filter>
     </ClCompile>
@@ -348,9 +342,6 @@
     <ClCompile Include="equi\equi.cpp">
       <Filter>Source Files\equi</Filter>
     </ClCompile>
-    <ClCompile Include="equi\equihash.cpp">
-      <Filter>Source Files\equi</Filter>
-    </ClCompile>
     <ClCompile Include="equi\equi-stratum.cpp">
       <Filter>Source Files\equi</Filter>
     </ClCompile>
@@ -359,6 +350,7 @@
     </ClCompile>
     <ClCompile Include="heavyhash/heavyhash-gate.c" />
     <ClCompile Include="heavyhash/keccak_tiny.c" />
+    <ClCompile Include="sph\sha3d.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="algos.h">
@@ -612,12 +604,10 @@
     </ClInclude>
     <ClInclude Include="heavyhash/heavyhash-gate.h" />
     <ClInclude Include="heavyhash/keccak_tiny.h" />
-    <ClInclude Include="equi\equihash.h">
-      <Filter>Source Files\equi</Filter>
-    </ClInclude>
     <ClInclude Include="x16\cuda_x16.h">
       <Filter>Header Files\CUDA</Filter>
     </ClInclude>
+    <ClInclude Include="sph\sph_sha3d.h" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="cuda.cpp">
@@ -905,7 +895,7 @@
     <CudaCompile Include="scrypt\keccak.cu">
       <Filter>Source Files\CUDA\scrypt</Filter>
     </CudaCompile>
-	<CudaCompile Include="scrypt\salsa_kernel.cu">
+    <CudaCompile Include="scrypt\salsa_kernel.cu">
       <Filter>Source Files\CUDA\scrypt</Filter>
     </CudaCompile>
     <CudaCompile Include="scrypt\sha256.cu">
@@ -968,7 +958,7 @@
     <CudaCompile Include="sha256\sha256t.cu">
       <Filter>Source Files\CUDA\sha256</Filter>
     </CudaCompile>
-   <CudaCompile Include="sia\sia.cu">
+    <CudaCompile Include="sia\sia.cu">
       <Filter>Source Files\sia</Filter>
     </CudaCompile>
     <CudaCompile Include="crypto\cryptolight.cu">
@@ -989,11 +979,8 @@
     <CudaCompile Include="crypto\wildkeccak.cu">
       <Filter>Source Files\CUDA</Filter>
     </CudaCompile>
-	<CudaCompile Include="allium.cu">
+    <CudaCompile Include="allium.cu">
       <Filter>Source Files\CUDA</Filter>
-	</CudaCompile>
-    <CudaCompile Include="equi\cuda_equi.cu">
-      <Filter>Source Files\equi</Filter>
     </CudaCompile>
     <CudaCompile Include="x15\cuda_x15_whirlpool_sm3.cu">
       <Filter>Source Files\CUDA\x15</Filter>
@@ -1022,7 +1009,7 @@
     <CudaCompile Include="x16\x16s.cu">
       <Filter>Source Files\CUDA\x16</Filter>
     </CudaCompile>
-	<CudaCompile Include="x21\x21s.cu">
+    <CudaCompile Include="x21\x21s.cu">
       <Filter>Source Files\CUDA\x21</Filter>
     </CudaCompile>
     <CudaCompile Include="x21\cuda_sha256_2.cu">
@@ -1033,6 +1020,9 @@
     </CudaCompile>
     <CudaCompile Include="heavyhash/heavyhash.cu" />
     <CudaCompile Include="heavyhash/cuda_heavyhash.cu" />
+    <CudaCompile Include="Algo256\sha3d.cu" />
+    <CudaCompile Include="Algo256\cuda_keccak256_sha3d.cu" />
+    <CudaCompile Include="x16\cuda_x16_shavite512.cu" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\ccminer.ico">

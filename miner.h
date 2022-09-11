@@ -265,6 +265,7 @@ json_t * json_load_url(char* cfg_url, json_error_t *err);
 #define USER_AGENT PACKAGE_NAME "/" PACKAGE_VERSION
 
 void sha256_init(uint32_t *state);
+void sha256t_init(uint32_t *state);
 void sha256_transform(uint32_t *state, const uint32_t *block, int swap);
 void sha256d(unsigned char *hash, const unsigned char *data, int len);
 void gostd(void *output, const void *input, size_t len);
@@ -312,6 +313,8 @@ extern int scanhash_quark(int thr_id, struct work *work, uint32_t max_nonce, uns
 extern int scanhash_qubit(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_sha256d(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_sha256t(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_novo(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_rad(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_sha3d(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_sia(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_sib(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
@@ -938,6 +941,8 @@ void skeincoinhash(void *output, const void *input);
 void skein2hash(void *output, const void *input);
 void skunk_hash(void *state, const void *input);
 void s3hash(void *output, const void *input);
+void rad_hash(uint32_t *output, const uint32_t *data, uint32_t nonce);
+void novo_hash(uint32_t *output, const uint32_t *data, uint32_t nonce, const uint32_t *midstate);
 void timetravel_hash(void *output, const void *input);
 void bitcore_hash(void *output, const void *input);
 void tribus_hash(void *output, const void *input);
