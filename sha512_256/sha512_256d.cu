@@ -19,10 +19,10 @@ extern "C" void sha512_256d_hash(void *output, const void *input)
 	
 	sha512_256_init(&ctx);
 	sha512_256_update(&ctx, (uint8_t *)input, 80);
-	sha512_256_final(&ctx, hash);
+	sha512_256_final(&ctx, (unsigned char *)hash);
 
 	sha512_256_init(&ctx);
-	sha512_256_update(&ctx, hash, 32);
+	sha512_256_update(&ctx, (uint8_t *)hash, 32);
 	sha512_256_final(&ctx, (unsigned char *)output);
 }
 
