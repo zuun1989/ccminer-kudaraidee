@@ -46,7 +46,6 @@
 #include "crypto/xmr-rpc.h"
 #include "sph/sph_sha3d.h"
 #include "equi/equihash.h"
-#include "sph/sha512_256.h"
 
 #include <cuda_runtime.h>
 
@@ -284,7 +283,6 @@ Options:\n\
 			sha256d		SHA256d (bitcoin)\n\
 			sha256t		SHA256 x3\n\
 			sha3d		Bsha3, Yilacoin and Kylacoin\n\
-			sha512256d		SHA512_256d (Radiant)\n\
 			sia		SIA (Blake2B)\n\
 			sib		Sibcoin (X11+Streebog)\n\
 			scrypt		Scrypt\n\
@@ -968,7 +966,6 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 		case ALGO_BMW512:
 		case ALGO_SHA256D:
 		case ALGO_SHA256T:
-		case ALGO_SHA512256D:
 		case ALGO_VANILLA:
 			// fast algos require that... (todo: regen hash)
 			check_dups = true;
@@ -2279,7 +2276,6 @@ static void *miner_thread(void *userdata)
 			case ALGO_DECRED:
 			case ALGO_SHA256D:
 			case ALGO_SHA256T:
-			case ALGO_SHA512256D:
 			//case ALGO_WHIRLPOOLX:
 				minmax = 0x40000000U;
 				break;
@@ -2527,9 +2523,6 @@ static void *miner_thread(void *userdata)
 			break;
 		case ALGO_SHA3D:
 			rc = scanhash_sha3d(thr_id, &work, max_nonce, &hashes_done);
-			break;
-		case ALGO_SHA512256D:
-			rc = scanhash_sha512_256d(thr_id, &work, max_nonce, &hashes_done);
 			break;
 		case ALGO_SIA:
 			rc = scanhash_sia(thr_id, &work, max_nonce, &hashes_done);
