@@ -941,7 +941,7 @@ void skeincoinhash(void *output, const void *input);
 void skein2hash(void *output, const void *input);
 void skunk_hash(void *state, const void *input);
 void s3hash(void *output, const void *input);
-void rad_hash(uint32_t *output, const uint32_t *data, uint32_t nonce);
+void rad_hash(void *output, const void *input);
 void novo_hash(uint32_t *output, const uint32_t *data, uint32_t nonce, const uint32_t *midstate);
 void timetravel_hash(void *output, const void *input);
 void bitcore_hash(void *output, const void *input);
