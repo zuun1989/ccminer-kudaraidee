@@ -1695,5 +1695,5 @@ void rad_cpu_hash(int thr_id, uint32_t threads, uint32_t startNounce, const uint
 __host__
 void rad_cpu_init(int thr_id)
 {
-	CUDA_SAFE_CALL(cudaMalloc(&d_result[thr_id], 4 * sizeof(uint32_t)));
+	CUDA_SAFE_CALL(cudaMalloc(&d_result[thr_id], 2 * sizeof(uint32_t)));
 }
