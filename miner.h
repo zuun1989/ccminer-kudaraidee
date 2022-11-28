@@ -60,9 +60,19 @@ typedef unsigned __int32 time_t;
 typedef char *  va_list;
 #endif
 
+#ifdef _MSC_VER
+#define THREAD __declspec(thread)
+#else
+#define THREAD __thread
+#endif
+
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ > 0
 # undef _ALIGN
 # define _ALIGN(x) __align__(x)
+#elif _MSC_VER
+# define _ALIGN(x) __declspec(align(x))
+#else
+# define _ALIGN(x) __attribute__ ((aligned(x)))
 #endif
 
 #ifdef HAVE_SYSLOG_H
@@ -339,6 +349,13 @@ extern int scanhash_x16s(int thr_id, struct work* work, uint32_t max_nonce, unsi
 extern int scanhash_x17(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_x21s(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_zr5(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+
+extern int scanhash_yescrypt(int thr_id, struct work* work, uint32_t max_nonce, unsigned long* hashes_done);
+extern int scanhash_yescryptr8(int thr_id, struct work* work, uint32_t max_nonce, unsigned long* hashes_done);
+extern int scanhash_yescryptr16(int thr_id, struct work* work, uint32_t max_nonce, unsigned long* hashes_done);
+extern int scanhash_yescryptr16v2(int thr_id, struct work* work, uint32_t max_nonce, unsigned long* hashes_done);
+extern int scanhash_yescryptr24(int thr_id, struct work* work, uint32_t max_nonce, unsigned long* hashes_done);
+extern int scanhash_yescryptr32(int thr_id, struct work* work, uint32_t max_nonce, unsigned long* hashes_done);
 
 /* free device allocated memory per algo */
 void algo_free_all(int thr_id);
@@ -957,6 +974,12 @@ void x16s_hash(void *output, const void *input);
 void x17hash(void *output, const void *input);
 void x21s_hash(void *output, const void *input);
 void wildkeccak_hash(void *output, const void *input, uint64_t* scratchpad, uint64_t ssize);
+void yescrypt_hash(void* output, const void* input);
+void yescryptr8_hash(void* output, const void* input);
+void yescryptr16_hash(void* output, const void* input);
+void yescryptr16v2_hash(void* output, const void* input);
+void yescryptr24_hash(void* output, const void* input);
+void yescryptr32_hash(void* output, const void* input);
 void zr5hash(void *output, const void *input);
 void zr5hash_pok(void *output, uint32_t *pdata);
 

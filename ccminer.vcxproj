@@ -104,7 +104,7 @@
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;CURL_STATICLIB;USE_WRAPNVML;SCRYPT_KECCAK512;SCRYPT_CHACHA;SCRYPT_CHOOSE_COMPILETIME;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;compat;compat\curl-for-windows\curl\include;compat\jansson;compat\getopt;compat\pthreads;compat\curl-for-windows\openssl\openssl\include;compat\curl-for-windows\zlib;%(AdditionalIncludeDirectories);$(CudaToolkitIncludeDir)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;compat;compat\curl-for-windows\curl\include;compat\jansson;compat\getopt;compat\pthreads;compat\curl-for-windows\openssl;compat\curl-for-windows\zlib;%(AdditionalIncludeDirectories);$(CudaToolkitIncludeDir)</AdditionalIncludeDirectories>
       <StructMemberAlignment>8Bytes</StructMemberAlignment>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -113,7 +113,7 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-      <AdditionalDependencies>cudart_static.lib;cuda.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;pthreadVC2.lib;libcurl.x64.lib;openssl.x64.lib;zlib.x64.lib;ws2_32.lib;Wldap32.lib;nvapi64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;pthreadVC2.lib;libcurl.x64.lib;libcrypto.x64.lib;libssl.x64.lib;zlib.x64.lib;ws2_32.lib;Wldap32.lib;cudart_static.lib;cuda.lib;nvapi64.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>libcmt.lib</IgnoreSpecificDefaultLibraries>
       <AdditionalLibraryDirectories>compat\pthreads\x64;compat\curl-for-windows\out\x64\Release\lib;compat\nvapi\amd64;%(AdditionalLibraryDirectories);$(CudaToolkitLibDir)</AdditionalLibraryDirectories>
       <AdditionalOptions>/NODEFAULTLIB:LIBCMTD %(AdditionalOptions)</AdditionalOptions>
@@ -257,6 +257,9 @@
     <ClCompile Include="nvapi.cpp" />
     <ClCompile Include="nvsettings.cpp" />
     <ClCompile Include="pools.cpp" />
+    <ClCompile Include="sph\sha256_Y.c" />
+    <ClCompile Include="sph\yescrypt-common.c" />
+    <ClCompile Include="sph\yescrypt-opt.c" />
     <ClCompile Include="util.cpp" />
     <ClCompile Include="bench.cpp" />
     <ClCompile Include="bignum.cpp" />
@@ -281,6 +284,10 @@
     <ClCompile Include="neoscrypt\neoscrypt.cpp" />
     <ClCompile Include="neoscrypt\neoscrypt-cpu.c" />
     <ClInclude Include="neoscrypt\cuda_vectors.h" />
+    <ClInclude Include="sph\sha256_Y.h" />
+    <ClInclude Include="sph\SHA3api_ref.h" />
+    <ClInclude Include="sph\yescrypt-platform.h" />
+    <ClInclude Include="sph\yescrypt.h" />
     <ClInclude Include="x11\cuda_x11_simd512_sm2.cuh" />
     <ClInclude Include="x16\cuda_x16.h" />
     <CudaCompile Include="Algo256\bmw.cu" />
@@ -434,6 +441,8 @@
     <CudaCompile Include="sha256\sha256t.cu" />
     <CudaCompile Include="x11\cuda_x11_echo_sp.cu" />
     <CudaCompile Include="x11\cuda_x11_shavite512_sp.cu" />
+    <CudaCompile Include="yescrypt\cuda_yescrypt.cu" />
+    <CudaCompile Include="yescrypt\yescrypt.cu" />
     <CudaCompile Include="zr5.cu" />
     <CudaCompile Include="gost\cuda_gosthash.cu" />
     <CudaCompile Include="gost\gost.cu" />

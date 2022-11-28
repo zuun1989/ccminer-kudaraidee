@@ -233,6 +233,18 @@ int opt_api_mcast_port = 4068;
 
 bool opt_stratum_stats = false;
 
+bool allow_getwork = true;
+static unsigned char pk_script[25] = { 0 };
+static size_t pk_script_size = 0;
+static char* lp_id;
+bool opt_segwit_mode = false;
+bool opt_eco_mode = false;
+char* yescrypt_key = NULL;
+size_t yescrypt_key_len = 0;
+uint32_t yescrypt_param_N = 0;
+uint32_t yescrypt_param_r = 0;
+uint32_t yescrypt_param_p = 0;
+
 static char const usage[] = "\
 Usage: " PROGRAM_NAME " [OPTIONS]\n\
 Options:\n\
@@ -309,6 +321,12 @@ Options:\n\
 			x16s		X16S\n\
 			x21s		X21S\n\
 			wildkeccak	Boolberry\n\
+			yescrypt     Globlboost-Y (BSTY) or any params\n\
+            yescryptr8   BitZeny (ZNY)\n\
+            yescryptr16  Yenten (YTN)\n\
+            yescryptr16v2 PPTP\n\
+            yescryptr24  JagariCoinR\n\
+            yescryptr32  WAVI\n\
 			zr5		ZR5 (ZiftrCoin)\n\
   -d, --devices         Comma separated list of CUDA devices to use.\n\
                         Device IDs start counting from 0! Alternatively takes\n\
@@ -335,6 +353,12 @@ Options:\n\
   -s, --scantime=N      upper bound on time spent scanning current work when\n\
                           long polling is unavailable, in seconds (default: 10)\n\
       --submit-stale    ignore stale jobs checks, may create more rejected shares\n\
+      --eco             use eco mode (Lyra2REv2 only)\n\
+      --segwit          Agree with Segwit (Solo Mining only)\n\
+      --coinbase-addr=ADDR  payout address for solo mining\n\
+      --no-getwork      disable getwork support\n\
+	  --yescrypt-param  set params(N,r,p) for yescrypt\n\
+	  --yescrypt-key    set key for yescrypt\n\
   -n, --ndevs           list cuda devices\n\
   -N, --statsavg        number of samples used to compute hashrate (default: 30)\n\
       --no-gbt          disable getblocktemplate support (height check in solo)\n\
@@ -477,6 +501,12 @@ struct option options[] = {
 	{ "diff-multiplier", 1, NULL, 'm' },
 	{ "diff-factor", 1, NULL, 'f' },
 	{ "diff", 1, NULL, 'f' }, // compat
+	{ "eco", 0, NULL, 1081 },
+	{ "coinbase-addr", 1, NULL, 1016 },
+	{ "no-getwork", 0, NULL, 1010 },
+	{ "segwit", 0, NULL, 1083 },
+	{ "yescrypt-param", 1, NULL, 1084 },
+	{ "yescrypt-key", 1, NULL, 1085 },
 	{ 0, 0, 0, 0 }
 };
 
@@ -1744,6 +1774,12 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_XAYA:
 		case ALGO_SCRYPT:
 		case ALGO_SCRYPT_JANE:
+		case ALGO_YESCRYPT:
+		case ALGO_YESCRYPTR8:
+		case ALGO_YESCRYPTR16:
+		case ALGO_YESCRYPTR16V2:
+		case ALGO_YESCRYPTR24:
+		case ALGO_YESCRYPTR32:
 			work_set_target(work, sctx->job.diff / (65536.0 * opt_difficulty));
 			break;
 		case ALGO_DMD_GR:
@@ -2325,6 +2361,15 @@ static void *miner_thread(void *userdata)
 			case ALGO_VELTOR:
 				minmax = 0x80000;
 				break;
+			case ALGO_YESCRYPT:
+			case ALGO_YESCRYPTR8:
+			case ALGO_YESCRYPTR16:
+			case ALGO_YESCRYPTR16V2:
+			case ALGO_YESCRYPTR24:
+			case ALGO_YESCRYPTR32:
+			case ALGO_LYRA2Z330:
+				minmax = 0x8000;
+				break;
 			case ALGO_CRYPTOLIGHT:
 			case ALGO_CRYPTONIGHT:
 			case ALGO_SCRYPT_JANE:
@@ -2597,6 +2642,30 @@ static void *miner_thread(void *userdata)
 		case ALGO_ZR5:
 			rc = scanhash_zr5(thr_id, &work, max_nonce, &hashes_done);
 			break;
+		case ALGO_YESCRYPT:
+			rc = scanhash_yescrypt(thr_id, &work, max_nonce, &hashes_done);
+			break;
+
+		case ALGO_YESCRYPTR8:
+			rc = scanhash_yescryptr8(thr_id, &work, max_nonce, &hashes_done);
+			break;
+
+		case ALGO_YESCRYPTR16:
+			rc = scanhash_yescryptr16(thr_id, &work, max_nonce, &hashes_done);
+			break;
+
+		case ALGO_YESCRYPTR16V2:
+			rc = scanhash_yescryptr16v2(thr_id, &work, max_nonce, &hashes_done);
+			break;
+
+		case ALGO_YESCRYPTR24:
+			rc = scanhash_yescryptr24(thr_id, &work, max_nonce, &hashes_done);
+			break;
+
+		case ALGO_YESCRYPTR32:
+			rc = scanhash_yescryptr32(thr_id, &work, max_nonce, &hashes_done);
+			break;
+
 
 		default:
 			/* should never happen */

@@ -118,6 +118,9 @@
     <Filter Include="Source Files\CUDA\tribus">
       <UniqueIdentifier>{1e548d79-c217-4203-989a-a592fe2b2de3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\CUDA\yescrypt">
+      <UniqueIdentifier>{600e2767-1d6f-4434-9f53-5fa16bd1385f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="compat\jansson\dump.c">
@@ -351,6 +354,15 @@
     <ClCompile Include="heavyhash/heavyhash-gate.c" />
     <ClCompile Include="heavyhash/keccak_tiny.c" />
     <ClCompile Include="sph\sha3d.c" />
+    <ClCompile Include="sph\yescrypt-common.c">
+      <Filter>Source Files\sph</Filter>
+    </ClCompile>
+    <ClCompile Include="sph\yescrypt-opt.c">
+      <Filter>Source Files\sph</Filter>
+    </ClCompile>
+    <ClCompile Include="sph\sha256_Y.c">
+      <Filter>Source Files\sph</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="algos.h">
@@ -611,6 +623,18 @@
       <Filter>Header Files\CUDA</Filter>
     </ClInclude>
     <ClInclude Include="sph\sph_sha3d.h" />
+    <ClInclude Include="sph\yescrypt.h">
+      <Filter>Header Files\sph</Filter>
+    </ClInclude>
+    <ClInclude Include="sph\yescrypt-platform.h">
+      <Filter>Header Files\sph</Filter>
+    </ClInclude>
+    <ClInclude Include="sph\SHA3api_ref.h">
+      <Filter>Header Files\sph</Filter>
+    </ClInclude>
+    <ClInclude Include="sph\sha256_Y.h">
+      <Filter>Header Files\sph</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="cuda.cpp">
@@ -1025,6 +1049,12 @@
     <CudaCompile Include="gost\cuda_gosthash.cu" />
     <CudaCompile Include="gost\gost.cu" />
     <CudaCompile Include="x16\cuda_x16_shavite512.cu" />
+    <CudaCompile Include="yescrypt\yescrypt.cu">
+      <Filter>Source Files\CUDA\yescrypt</Filter>
+    </CudaCompile>
+    <CudaCompile Include="yescrypt\cuda_yescrypt.cu">
+      <Filter>Source Files\CUDA\yescrypt</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\ccminer.ico">

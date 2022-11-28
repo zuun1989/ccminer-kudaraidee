@@ -171,7 +171,7 @@ __device__ __forceinline__ uint32_t ssg2_1(const uint32_t x)
 {
 	return xor3b(ROTR32(x,17),ROTR32(x,19),(x>>10));
 }
-
+/*
 __device__ __forceinline__ uint32_t andor32(const uint32_t a, const uint32_t b, const uint32_t c)
 {
 	uint32_t result;
@@ -185,7 +185,7 @@ __device__ __forceinline__ uint32_t andor32(const uint32_t a, const uint32_t b, 
 	);
 	return result;
 }
-
+*/
 __device__ __forceinline__ uint2 vectorizeswap(uint64_t v) {
 	uint2 result;
 	asm("mov.b64 {%0,%1},%2; \n\t"
