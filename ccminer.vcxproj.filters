@@ -718,7 +718,7 @@
     <CudaCompile Include="x11\cuda_x11_echo_sp.cu">
       <Filter>Source Files\CUDA\x11</Filter>
     </CudaCompile>
-   <CudaCompile Include="x11\cuda_x11_luffa512.cu">
+    <CudaCompile Include="x11\cuda_x11_luffa512.cu">
       <Filter>Source Files\CUDA\x11</Filter>
     </CudaCompile>
     <CudaCompile Include="x11\cuda_x11_luffa512_Cubehash.cu">
@@ -1022,6 +1022,10 @@
     <CudaCompile Include="heavyhash/cuda_heavyhash.cu" />
     <CudaCompile Include="Algo256\sha3d.cu" />
     <CudaCompile Include="Algo256\cuda_keccak256_sha3d.cu" />
+    <CudaCompile Include="gost\cuda_gosthash.cu" />
+    <CudaCompile Include="gost\gost.cu" />
+    <CudaCompile Include="x16\cuda_x16_shavite512.cu" />
+    <CudaCompile Include="x21\skydoge.cu" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\ccminer.ico">

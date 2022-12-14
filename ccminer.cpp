@@ -289,6 +289,7 @@ Options:\n\
 			scrypt-jane	Scrypt-jane Chacha\n\
 			skein		Skein SHA2 (Skeincoin)\n\
 			skein2		Double Skein (Woodcoin)\n\
+			skydoge		Skydoge\n\
 			skunk		Skein Cube Fugue Streebog\n\
 			s3		S3 (1Coin)\n\
 			timetravel	Machinecoin permuted x8\n\
@@ -2596,6 +2597,9 @@ static void *miner_thread(void *userdata)
 			break;
 		case ALGO_ZR5:
 			rc = scanhash_zr5(thr_id, &work, max_nonce, &hashes_done);
+			break;
+		case ALGO_SKYDOGE:
+			rc = scanhash_skydoge(thr_id, &work, max_nonce, &hashes_done);
 			break;
 
 		default:
