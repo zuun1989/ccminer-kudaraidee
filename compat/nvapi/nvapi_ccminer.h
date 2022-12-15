@@ -5,7 +5,8 @@
 
 NvAPI_Status nvapi_dll_init();
 
-typedef struct {
+typedef struct
+{
 	NvU32 version;
 	NvU8  valid;
 	NvU8  count;
@@ -23,10 +24,12 @@ typedef struct {
 } NVAPI_GPU_POWER_INFO;
 #define NVAPI_GPU_POWER_INFO_VER MAKE_NVAPI_VERSION(NVAPI_GPU_POWER_INFO, 1)
 
-typedef struct {
+typedef struct
+{
 	NvU32 version;
 	NvU32 flags;
-	struct {
+	struct
+	{
 		NvU32 unknown1;
 		NvU32 unknown2;
 		NvU32 power; // percent * 1000
@@ -35,10 +38,12 @@ typedef struct {
 } NVAPI_GPU_POWER_STATUS;
 #define NVAPI_GPU_POWER_STATUS_VER MAKE_NVAPI_VERSION(NVAPI_GPU_POWER_STATUS, 1)
 
-typedef struct {
+typedef struct
+{
 	NvU32 version;
 	NvU32 count;
-	struct {
+	struct
+	{
 		NvU32 unknown1;
 		NvU32 unknown2;
 		NvU32 power; // unsure ?? 85536 to 95055 on 1080, 104825+ on 970
@@ -47,10 +52,12 @@ typedef struct {
 } NVAPI_GPU_POWER_TOPO;
 #define NVAPI_GPU_POWER_TOPO_VER MAKE_NVAPI_VERSION(NVAPI_GPU_POWER_TOPO, 1)
 
-typedef struct {
+typedef struct
+{
 	NvU32 version;
 	NvU32 flags;
-	struct {
+	struct
+	{
 		NvU32 controller;
 		NvU32 unknown;
 		NvS32 min_temp;
@@ -61,10 +68,12 @@ typedef struct {
 } NVAPI_GPU_THERMAL_INFO;
 #define NVAPI_GPU_THERMAL_INFO_VER MAKE_NVAPI_VERSION(NVAPI_GPU_THERMAL_INFO, 2)
 
-typedef struct {
+typedef struct
+{
 	NvU32 version;
 	NvU32 flags;
-	struct {
+	struct
+	{
 		NvU32 controller;
 		NvU32 value;
 		NvU32 flags;
@@ -73,7 +82,8 @@ typedef struct {
 #define NVAPI_GPU_THERMAL_LIMIT_VER MAKE_NVAPI_VERSION(NVAPI_GPU_THERMAL_LIMIT, 2)
 
 // Maxwell gpu core voltage reading
-typedef struct {
+typedef struct
+{
 	NvU32 version;
 	NvU32 flags;
 	NvU32 count; // unsure
@@ -83,8 +93,9 @@ typedef struct {
 } NVAPI_VOLT_STATUS; // 140 bytes (1-008c)
 #define NVAPI_VOLT_STATUS_VER MAKE_NVAPI_VERSION(NVAPI_VOLT_STATUS, 1)
 
-// Pascal gpu core voltage reading
-typedef struct {
+					 // Pascal gpu core voltage reading
+typedef struct
+{
 	NvU32 version;
 	NvU32 flags;
 	NvU32 nul[8];
@@ -93,11 +104,13 @@ typedef struct {
 } NVAPI_VOLTAGE_STATUS; // 76 bytes (1-004c)
 #define NVAPI_VOLTAGE_STATUS_VER MAKE_NVAPI_VERSION(NVAPI_VOLTAGE_STATUS, 1)
 
-typedef struct {
+typedef struct
+{
 	NvU32 version;
 	NvU32 numClocks; // unsure
 	NvU32 nul[8];
-	struct {
+	struct
+	{
 		NvU32 a;
 		NvU32 clockType;
 		NvU32 c;
@@ -120,12 +133,14 @@ typedef struct {
 } NVAPI_CLOCKS_RANGE; // 2344 bytes
 #define NVAPI_CLOCKS_RANGE_VER MAKE_NVAPI_VERSION(NVAPI_CLOCKS_RANGE, 1)
 
-// seems to return a clock table mask
-typedef struct {
+					  // seems to return a clock table mask
+typedef struct
+{
 	NvU32 version;
 	NvU32 mask[4]; // 80 bits mask
 	NvU32 buf0[8];
-	struct {
+	struct
+	{
 		NvU32 a;
 		NvU32 b;
 		NvU32 c;
@@ -137,12 +152,14 @@ typedef struct {
 } NVAPI_CLOCK_MASKS; // 6188 bytes
 #define NVAPI_CLOCK_MASKS_VER MAKE_NVAPI_VERSION(NVAPI_CLOCK_MASKS, 1)
 
-// contains the gpu/mem clocks deltas
-typedef struct {
+					 // contains the gpu/mem clocks deltas
+typedef struct
+{
 	NvU32 version;
 	NvU32 mask[4]; // 80 bits mask (could be 8x 32bits)
 	NvU32 buf0[12];
-	struct {
+	struct
+	{
 		NvU32 a;
 		NvU32 b;
 		NvU32 c;
@@ -159,11 +176,13 @@ typedef struct {
 } NVAPI_CLOCK_TABLE; // 9248 bytes
 #define NVAPI_CLOCK_TABLE_VER MAKE_NVAPI_VERSION(NVAPI_CLOCK_TABLE, 1)
 
-typedef struct {
+typedef struct
+{
 	NvU32 version;
 	NvU32 mask[4]; // 80 bits mask
 	NvU32 buf0[12];
-	struct {
+	struct
+	{
 		NvU32 a; // 0
 		NvU32 freq_kHz;
 		NvU32 volt_uV;
@@ -172,7 +191,8 @@ typedef struct {
 		NvU32 f;
 		NvU32 g;
 	} gpuEntries[80];
-	struct {
+	struct
+	{
 		NvU32 a;  // 1 for idle values ?
 		NvU32 freq_kHz;
 		NvU32 volt_uV;
@@ -185,18 +205,21 @@ typedef struct {
 } NVAPI_VFP_CURVE; // 7208 bytes (1-1c28)
 #define NVAPI_VFP_CURVE_VER MAKE_NVAPI_VERSION(NVAPI_VFP_CURVE, 1)
 
-typedef struct {
+typedef struct
+{
 	NvU32 version;
 	NvS32 percent;
 	NvU32 pad[8];
 } NVAPI_VOLTBOOST_PERCENT; // 40 bytes (1-0028)
 #define NVAPI_VOLTBOOST_PERCENT_VER MAKE_NVAPI_VERSION(NVAPI_VOLTBOOST_PERCENT, 1)
 
-typedef struct {
+typedef struct
+{
 	NvU32 version;
 	NvU32 flags;
 	NvU32 filled; // 1
-	struct {
+	struct
+	{
 		NvU32 volt_uV;
 		NvU32 unknown;
 	} entries[128];
@@ -205,7 +228,8 @@ typedef struct {
 } NVAPI_VOLTAGES_TABLE; // 16588 bytes (1-40cc)
 #define NVAPI_VOLTAGES_TABLE_VER MAKE_NVAPI_VERSION(NVAPI_VOLTAGES_TABLE, 1)
 
-typedef struct {
+typedef struct
+{
 	NvU32 version;
 	NvU32 val1; // 7
 	NvU32 val2; // 0x3F (63.)
@@ -213,7 +237,8 @@ typedef struct {
 } NVAPI_GPU_PERF_INFO; // 76 bytes (1-004c)
 #define NVAPI_GPU_PERF_INFO_VER MAKE_NVAPI_VERSION(NVAPI_GPU_PERF_INFO, 1)
 
-typedef struct {
+typedef struct
+{
 	NvU32 version;
 	NvU32 flags;     // 0
 	NvU64 timeRef;   // increment with time
@@ -224,7 +249,8 @@ typedef struct {
 } NVAPI_GPU_PERF_STATUS; // 1360 bytes (1-0550)
 #define NVAPI_GPU_PERF_STATUS_VER MAKE_NVAPI_VERSION(NVAPI_GPU_PERF_STATUS, 1)
 
-typedef struct {
+typedef struct
+{
 	NvU32 version;
 	NvU32 val1;      // 4
 	NvU32 val2;      // 2 or 0
@@ -247,7 +273,8 @@ typedef struct {
 } NVAPI_GPU_PERF_CLOCKS; // 10868 bytes (2-2a74)
 #define NVAPI_GPU_PERF_CLOCKS_VER MAKE_NVAPI_VERSION(NVAPI_GPU_PERF_CLOCKS, 2)
 
-typedef struct {
+typedef struct
+{
 	NvU32 version;
 	NvU32 level;
 	NvU32 count;
@@ -255,7 +282,8 @@ typedef struct {
 } NVAPI_COOLER_SETTINGS;
 #define NVAPI_COOLER_SETTINGS_VER MAKE_NVAPI_VERSION(NVAPI_COOLER_SETTINGS, 4)
 
-typedef struct {
+typedef struct
+{
 	NvU32 version;
 	NvU32 level;   // 0 = auto ?
 	NvU32 count;   // 1
@@ -299,11 +327,11 @@ NvAPI_Status NvAPI_DLL_RestoreCoolerSettings(NvPhysicalGpuHandle, NVAPI_COOLER_S
 NvAPI_Status NvAPI_DLL_GetSerialNumber(NvPhysicalGpuHandle, NvAPI_ShortString serial);
 
 NvAPI_Status NvAPI_DLL_GetPerfClocks(NvPhysicalGpuHandle, uint32_t num, NVAPI_GPU_PERF_CLOCKS* pClocks); // 2-2A74
-//NvAPI_Status NvAPI_DLL_SetPerfClocks(NvPhysicalGpuHandle, uint32_t num, NVAPI_GPU_PERF_CLOCKS* pClocks); // error
+																										 //NvAPI_Status NvAPI_DLL_SetPerfClocks(NvPhysicalGpuHandle, uint32_t num, NVAPI_GPU_PERF_CLOCKS* pClocks); // error
 
-//invalid..
-//NvAPI_Status NvAPI_DLL_GetPstateClientLimits(NvPhysicalGpuHandle, NV_GPU_PERF_PSTATE_ID, uint32_t* pLimits);
-//NvAPI_Status NvAPI_DLL_SetPstateClientLimits(NvPhysicalGpuHandle, NV_GPU_PERF_PSTATE_ID, uint32_t* pLimits);
+																										 //invalid..
+																										 //NvAPI_Status NvAPI_DLL_GetPstateClientLimits(NvPhysicalGpuHandle, NV_GPU_PERF_PSTATE_ID, uint32_t* pLimits);
+																										 //NvAPI_Status NvAPI_DLL_SetPstateClientLimits(NvPhysicalGpuHandle, NV_GPU_PERF_PSTATE_ID, uint32_t* pLimits);
 
 NvAPI_Status NvAPI_DLL_SetPstates20v1(NvPhysicalGpuHandle handle, NV_GPU_PERF_PSTATES20_INFO_V1 *pSet);
 NvAPI_Status NvAPI_DLL_SetPstates20v2(NvPhysicalGpuHandle handle, NV_GPU_PERF_PSTATES20_INFO_V2 *pSet);
@@ -350,14 +378,12 @@ $ ==> 40 00 03 00  00 00 00 00  00 40 00 00  00 00 00 00
 $+10  58 F9 2B 00  00 00 00 00  01 00 00 00  00 00 00 00
 $+20  C0 F9 2B 00  00 00 00 00  02 00 00 00  FF FF 00 00
 $+30  00 00 00 00  02 00 00 00  01 00 00 00  00 00 00 00
-
 $ ==> 40 00 03 00  00 00 00 00  00 10 00 00  00 00 00 00
 $+10  68 F9 2B 00  00 00 00 00  01 00 00 00  00 00 00 00
 $+20  C0 F9 2B 00  00 00 00 00  01 00 00 00  FF FF 00 00
 $+30  00 00 00 00  01 00 00 00  01 00 00 00  00 00 00 00
 00000000002BF968 > 75 83 CF 3F 01 00 00 00
 00000000002BF9C0 > 0
-
 WriteEx
 $ ==> 40 00 03 00  00 00 00 00  00 8C 00 00  00 00 00 00
 $+10  30 F9 2B 00  00 00 00 00  01 00 00 00  00 00 00 00
