@@ -598,6 +598,7 @@ static size_t base64_encode(const uchar *indata, size_t insize, char *outptr, si
 }
 
 #include "openssl/sha.h"
+#include <WS2tcpip.h>
 
 /* websocket handshake (tested in Chrome) */
 static int websocket_handshake(SOCKETTYPE c, char *result, char *clientkey)

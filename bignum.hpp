@@ -15,6 +15,7 @@
 #include <openssl/bn.h>
 
 #include "serialize.hpp"
+#include <uint256.h>
 
 /** Errors thrown by the bignum class */
 class bignum_error : public std::runtime_error
