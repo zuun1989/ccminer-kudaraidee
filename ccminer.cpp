@@ -4083,6 +4083,7 @@ int main(int argc, char *argv[])
 		if ( strncasecmp( rpc_url, "https:", 6 ) &&				
 				strncasecmp( rpc_url, "stratum+tcps://", 15 ) &&
 				strncasecmp(rpc_url,"stratum+ssl://",14 ))
+
 				flags &= ~CURL_GLOBAL_SSL;
 
 	if (curl_global_init(flags)) {
