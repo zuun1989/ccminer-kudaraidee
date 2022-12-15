@@ -3382,12 +3382,17 @@ void parse_arg(int key, char *arg)
 			if (opt_timeout == 300) opt_timeout = 60;
 		}
 		p = strstr(arg, "://");
-		if (p) {
-			if (strncasecmp(arg, "http://", 7) 
-				&& strncasecmp(arg, "https://", 8) 
-				&& strncasecmp(arg, "stratum+tcp://", 14) 
-				&& strncasecmp(arg, "stratum+tcps://", 15) )
-				show_usage_and_exit(1);
+		if (p) 
+		{
+			if (strncasecmp(arg, "http://", 7) &&
+				strncasecmp(arg, "https://", 8) &&
+				strncasecmp(arg, "stratum+tcp://", 14) &&
+				strncasecmp(arg, "stratum+tcps://", 15) &&
+				strncasecmp(arg, "stratum+ssl://", 14)) 
+				{
+					fprintf(stderr, "unknown protocol -- '%s'\n", arg);
+					show_usage_and_exit(1);
+				}
 			free(rpc_url);
 			rpc_url = strdup(arg);
 			short_url = &rpc_url[(p - arg) + 3];
@@ -4075,9 +4080,10 @@ int main(int argc, char *argv[])
 
 	flags = CURL_GLOBAL_ALL;
 	if ( !opt_benchmark )
-		if ( strncasecmp( rpc_url, "https:", 6 )
-			&& strncasecmp( rpc_url, "stratum+tcps://", 15 ) )
-			flags &= ~CURL_GLOBAL_SSL;
+		if ( strncasecmp( rpc_url, "https:", 6 ) &&				
+				strncasecmp( rpc_url, "stratum+tcps://", 15 ) &&
+				strncasecmp(rpc_url,"stratum+ssl://",14 ))
+				flags &= ~CURL_GLOBAL_SSL;
 
 	if (curl_global_init(flags)) {
 		applog(LOG_ERR, "CURL initialization failed");
