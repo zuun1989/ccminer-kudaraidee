@@ -1,11 +1,33 @@
+<<<<<<< Updated upstream
 #ifndef HEADER_OPENSSLV_H
 #define HEADER_OPENSSLV_H
 
 /* Numeric release version identifier:
+=======
+/*
+ * Copyright 1999-2022 The OpenSSL Project Authors. All Rights Reserved.
+ *
+ * Licensed under the OpenSSL license (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * https://www.openssl.org/source/license.html
+ */
+
+#ifndef HEADER_OPENSSLV_H
+# define HEADER_OPENSSLV_H
+
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
+/*-
+ * Numeric release version identifier:
+>>>>>>> Stashed changes
  * MNNFFPPS: major minor fix patch status
  * The status nibble has one of the values 0 for development, 1 to e for betas
  * 1 to 14, and f for release.  The patch level is exactly that.
  * For example:
+<<<<<<< Updated upstream
  * 0.9.3-dev	  0x00903000
  * 0.9.3-beta1	  0x00903001
  * 0.9.3-beta2-dev 0x00903002
@@ -14,6 +36,16 @@
  * 0.9.3a	  0x0090301f
  * 0.9.4 	  0x0090400f
  * 1.2.3z	  0x102031af
+=======
+ * 0.9.3-dev      0x00903000
+ * 0.9.3-beta1    0x00903001
+ * 0.9.3-beta2-dev 0x00903002
+ * 0.9.3-beta2    0x00903002 (same as ...beta2-dev)
+ * 0.9.3          0x0090300f
+ * 0.9.3a         0x0090301f
+ * 0.9.4          0x0090400f
+ * 1.2.3z         0x102031af
+>>>>>>> Stashed changes
  *
  * For continuity reasons (because 0.9.5 is already out, and is coded
  * 0x00905100), between 0.9.5 and 0.9.6 the coding of the patch level
@@ -25,6 +57,7 @@
  * (Prior to 0.9.5a beta1, a different scheme was used: MMNNFFRBB for
  *  major minor fix final patch/beta)
  */
+<<<<<<< Updated upstream
 #define OPENSSL_VERSION_NUMBER	0x1000109fL
 #ifdef OPENSSL_FIPS
 #define OPENSSL_VERSION_TEXT	"OpenSSL 1.0.1i-fips 6 Aug 2014"
@@ -35,6 +68,13 @@
 
 
 /* The macros below are to be used for shared library (.so, .dll, ...)
+=======
+# define OPENSSL_VERSION_NUMBER  0x1010113fL
+# define OPENSSL_VERSION_TEXT    "OpenSSL 1.1.1s  1 Nov 2022"
+
+/*-
+ * The macros below are to be used for shared library (.so, .dll, ...)
+>>>>>>> Stashed changes
  * versioning.  That kind of versioning works a bit differently between
  * operating systems.  The most usual scheme is to set a major and a minor
  * number, and have the runtime loader check that the major number is equal
@@ -42,11 +82,19 @@
  * be greater or equal to what it was at application link time.  With this
  * scheme, the version number is usually part of the file name, like this:
  *
+<<<<<<< Updated upstream
  *	libcrypto.so.0.9
  *
  * Some unixen also make a softlink with the major verson number only:
  *
  *	libcrypto.so.0
+=======
+ *      libcrypto.so.0.9
+ *
+ * Some unixen also make a softlink with the major version number only:
+ *
+ *      libcrypto.so.0
+>>>>>>> Stashed changes
  *
  * On Tru64 and IRIX 6.x it works a little bit differently.  There, the
  * shared library version is stored in the file, and is actually a series
@@ -61,11 +109,19 @@
  * to highest, should be part of the string.  Consecutive builds would
  * give the following versions strings:
  *
+<<<<<<< Updated upstream
  *	3.0
  *	3.0:3.1
  *	3.0:3.1:3.2
  *	4.0
  *	4.0:4.1
+=======
+ *      3.0
+ *      3.0:3.1
+ *      3.0:3.1:3.2
+ *      4.0
+ *      4.0:4.1
+>>>>>>> Stashed changes
  *
  * Notice how version 4 is completely incompatible with version, and
  * therefore give the breach you can see.
@@ -82,8 +138,19 @@
  * macro SHLIB_VERSION_HISTORY.  The numbers are separated by colons and
  * should only keep the versions that are binary compatible with the current.
  */
+<<<<<<< Updated upstream
 #define SHLIB_VERSION_HISTORY ""
 #define SHLIB_VERSION_NUMBER "1.0.0"
 
 
 #endif /* HEADER_OPENSSLV_H */
+=======
+# define SHLIB_VERSION_HISTORY ""
+# define SHLIB_VERSION_NUMBER "1.1"
+
+
+#ifdef  __cplusplus
+}
+#endif
+#endif                          /* HEADER_OPENSSLV_H */
+>>>>>>> Stashed changes
