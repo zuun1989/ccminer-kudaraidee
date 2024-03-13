@@ -56,7 +56,7 @@
 BOOL WINAPI ConsoleHandler(DWORD);
 #endif
 
-#define PROGRAM_NAME		"ccminer-kudaraidee"
+#define PROGRAM_NAME		"ccminer-tpfuemp"
 #define LP_SCANTIME		60
 #define HEAVYCOIN_BLKHDR_SZ		84
 #define MNR_BLKHDR_SZ 80
@@ -292,6 +292,7 @@ Options:\n\
 			polytimos	Politimos\n\
 			quark		Quark\n\
 			qubit		Qubit\n\
+			sha256csm	SHA256csm (galleoncoin)\n\
 			sha256d		SHA256d (bitcoin)\n\
 			sha256t		SHA256 x3\n\
 			sha3d		Bsha3, Yilacoin and Kylacoin\n\
@@ -994,6 +995,7 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 		case ALGO_BLAKE2S:
 		case ALGO_BMW:
 		case ALGO_BMW512:
+		case ALGO_SHA256CSM:
 		case ALGO_SHA256D:
 		case ALGO_SHA256T:
 		case ALGO_VANILLA:
@@ -2310,6 +2312,7 @@ static void *miner_thread(void *userdata)
 			case ALGO_BMW:
 			case ALGO_BMW512:
 			case ALGO_DECRED:
+			case ALGO_SHA256CSM:
 			case ALGO_SHA256D:
 			case ALGO_SHA256T:
 			//case ALGO_WHIRLPOOLX:
@@ -2559,6 +2562,9 @@ static void *miner_thread(void *userdata)
 			break;
 		case ALGO_SKUNK:
 			rc = scanhash_skunk(thr_id, &work, max_nonce, &hashes_done);
+			break;
+		case ALGO_SHA256CSM:
+			rc = scanhash_sha256csm(thr_id, &work, max_nonce, &hashes_done);
 			break;
 		case ALGO_SHA256D:
 			rc = scanhash_sha256d(thr_id, &work, max_nonce, &hashes_done);
@@ -4025,7 +4031,7 @@ int main(int argc, char *argv[])
 	// get opt_quiet early
 	parse_single_opt('q', argc, argv);
 
-	printf("*** ccminer-kudaraidee " PACKAGE_VERSION " for nVidia GPUs by kudaraidee@github ***\n");
+	printf("*** ccminer-tpfuemp " PACKAGE_VERSION " for nVidia GPUs by tpfuemp@github ***\n");
 	if (!opt_quiet) {
 		const char* arch = is_x64() ? "64-bits" : "32-bits";
 #ifdef _MSC_VER
@@ -4036,7 +4042,7 @@ int main(int argc, char *argv[])
 			CUDART_VERSION/1000, (CUDART_VERSION % 1000)/10, arch);
 		printf("  Originally based on Christian Buchner and Christian H. project\n");
 		printf("  Include some kernels from lenis0012, tpruvot, alexis78, djm34, djEzo, tsiv and krnlx.\n\n");
-		printf("DOGE donation address: D6oP3WPygJ4NR26XxfFydUsCiNS4oX9rqb (xiaolin1579)\n\n");
+		printf("DOGE donation address: DNQdyeLu9DtRfsZCFvy1GfJTwjWJoSWHLh (tpfuemp)\n\n");
 	}
 
 	rpc_user = strdup("");

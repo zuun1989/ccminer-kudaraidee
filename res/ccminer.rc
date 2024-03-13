@@ -13,7 +13,7 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// Anglais (�tats-Unis) resources
+// Englisch (USA) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
@@ -54,14 +54,15 @@ END
 // remains consistent on all systems.
 IDI_ICON1               ICON                    "ccminer.ico"
 
+
 /////////////////////////////////////////////////////////////////////////////
 //
 // Version
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,2,0,0
- PRODUCTVERSION 1,2,0,0
+ FILEVERSION 1,0,0,0
+ PRODUCTVERSION 1,0,0,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x21L
@@ -76,10 +77,10 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "FileVersion", "1.2.0"
+            VALUE "FileVersion", "1.0.0.0"
             VALUE "LegalCopyright", "Copyright (C) 2022"
-            VALUE "ProductName", "ccminer-kudaraidee"
-            VALUE "ProductVersion", "1.2.0"
+            VALUE "ProductName", "ccminer-tpfuemp"
+            VALUE "ProductVersion", "1.0.0.0"
         END
     END
     BLOCK "VarFileInfo"
@@ -88,7 +89,7 @@ BEGIN
     END
 END
 
-#endif    // Anglais (�tats-Unis) resources
+#endif    // Englisch (USA) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

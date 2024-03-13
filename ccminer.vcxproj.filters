@@ -1055,6 +1055,12 @@
     <CudaCompile Include="yescrypt\cuda_yescrypt.cu">
       <Filter>Source Files\CUDA\yescrypt</Filter>
     </CudaCompile>
+    <CudaCompile Include="sha256\cuda_sha256csm.cu">
+      <Filter>Source Files\CUDA\sha256</Filter>
+    </CudaCompile>
+    <CudaCompile Include="sha256\sha256csm.cu">
+      <Filter>Source Files\CUDA\sha256</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\ccminer.ico">
