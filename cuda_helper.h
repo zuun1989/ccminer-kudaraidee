@@ -66,6 +66,30 @@ extern const uint3 threadIdx;
 // #define SPH_T64(x) ((x) & SPH_C64(0xFFFFFFFFFFFFFFFF))
 #endif
 
+static __device__ __forceinline__ int SHFL(int var, int src, int width = 32)
+{
+#if defined __CUDA_ARCH__ && __CUDA_ARCH__ >= 300
+#if CUDART_VERSION >= 9010
+	return __shfl_sync(0xffffffff, var, src, width);
+#else
+	return __shfl(var, src, width);
+#endif
+#else
+#endif
+}
+
+static __device__ __forceinline__ int SHFL_UP(int var, int src, int width = 32)
+{
+#if defined __CUDA_ARCH__ && __CUDA_ARCH__ >= 300
+#if CUDART_VERSION >= 9010
+	return __shfl_up_sync(0xffffffff, var, src, width);
+#else
+	return __shfl_up(var, src, width);
+#endif
+#else
+#endif
+}
+
 #if __CUDA_ARCH__ < 320
 // Host and Compute 3.0
 #define ROTL32(x, n) SPH_T32(((x) << (n)) | ((x) >> (32 - (n))))
@@ -714,6 +738,24 @@ uint2 xor3x(const uint2 a,const uint2 b,const uint2 c) {
 	asm ("lop3.b32 %0, %1, %2, %3, 0x96;" : "=r"(result.y) : "r"(a.y), "r"(b.y),"r"(c.y)); //0x96 = 0xF0 ^ 0xCC ^ 0xAA
 #else
 	result = a^b^c;
+#endif
+	return result;
+}
+
+// device asm 32 for pluck
+static __device__ __forceinline__
+uint32_t andor32(uint32_t a, uint32_t b, uint32_t c) {
+	uint32_t result;
+#ifdef __CUDA_ARCH__
+	asm("{ .reg .u32 m,n,o;\n\t"
+		"and.b32 m,  %1, %2;\n\t"
+		" or.b32 n,  %1, %2;\n\t"
+		"and.b32 o,   n, %3;\n\t"
+		" or.b32 %0,  m, o ;\n\t"
+		"}"
+		: "=r"(result) : "r"(a), "r"(b), "r"(c));
+#else
+	result = ((a | b) & c) | (a & b);
 #endif
 	return result;
 }

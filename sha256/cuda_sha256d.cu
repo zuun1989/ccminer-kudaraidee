@@ -10,428 +10,17 @@
 #include <cuda_helper.h>
 #include <miner.h>
 
-__constant__ static uint32_t __align__(8) c_midstate76[8];
-__constant__ static uint32_t __align__(8) c_dataEnd80[4];
-
-const __constant__  uint32_t __align__(8) c_H256[8] = {
-	0x6A09E667U, 0xBB67AE85U, 0x3C6EF372U, 0xA54FF53AU,
-	0x510E527FU, 0x9B05688CU, 0x1F83D9ABU, 0x5BE0CD19U
-};
-__constant__ static uint32_t __align__(8) c_K[64];
-__constant__ static uint32_t __align__(8) c_target[2];
-__device__ uint64_t d_target[1];
+#define TPB 512
+#define NONCES_PER_THREAD 32
 
 static uint32_t* d_resNonces[MAX_GPUS] = { 0 };
 
 // ------------------------------------------------------------------------------------------------
 
-static const uint32_t cpu_H256[8] = {
-	0x6A09E667U, 0xBB67AE85U, 0x3C6EF372U, 0xA54FF53AU,
-	0x510E527FU, 0x9B05688CU, 0x1F83D9ABU, 0x5BE0CD19U
-};
-
-static const uint32_t cpu_K[64] = {
-	0x428A2F98, 0x71374491, 0xB5C0FBCF, 0xE9B5DBA5, 0x3956C25B, 0x59F111F1, 0x923F82A4, 0xAB1C5ED5,
-	0xD807AA98, 0x12835B01, 0x243185BE, 0x550C7DC3, 0x72BE5D74, 0x80DEB1FE, 0x9BDC06A7, 0xC19BF174,
-	0xE49B69C1, 0xEFBE4786, 0x0FC19DC6, 0x240CA1CC, 0x2DE92C6F, 0x4A7484AA, 0x5CB0A9DC, 0x76F988DA,
-	0x983E5152, 0xA831C66D, 0xB00327C8, 0xBF597FC7, 0xC6E00BF3, 0xD5A79147, 0x06CA6351, 0x14292967,
-	0x27B70A85, 0x2E1B2138, 0x4D2C6DFC, 0x53380D13, 0x650A7354, 0x766A0ABB, 0x81C2C92E, 0x92722C85,
-	0xA2BFE8A1, 0xA81A664B, 0xC24B8B70, 0xC76C51A3, 0xD192E819, 0xD6990624, 0xF40E3585, 0x106AA070,
-	0x19A4C116, 0x1E376C08, 0x2748774C, 0x34B0BCB5, 0x391C0CB3, 0x4ED8AA4A, 0x5B9CCA4F, 0x682E6FF3,
-	0x748F82EE, 0x78A5636F, 0x84C87814, 0x8CC70208, 0x90BEFFFA, 0xA4506CEB, 0xBEF9A3F7, 0xC67178F2
-};
-
-#define ROTR ROTR32
-
-__host__
-static void sha256_step1_host(uint32_t a, uint32_t b, uint32_t c, uint32_t &d,
-	uint32_t e, uint32_t f, uint32_t g, uint32_t &h,
-	uint32_t in, const uint32_t Kshared)
-{
-	uint32_t t1,t2;
-	uint32_t vxandx = (((f) ^ (g)) & (e)) ^ (g); // xandx(e, f, g);
-	uint32_t bsg21 = ROTR(e, 6) ^ ROTR(e, 11) ^ ROTR(e, 25); // bsg2_1(e);
-	uint32_t bsg20 = ROTR(a, 2) ^ ROTR(a, 13) ^ ROTR(a, 22); //bsg2_0(a);
-	uint32_t andorv = ((b) & (c)) | (((b) | (c)) & (a)); //andor32(a,b,c);
-
-	t1 = h + bsg21 + vxandx + Kshared + in;
-	t2 = bsg20 + andorv;
-	d = d + t1;
-	h = t1 + t2;
-}
-
-__host__
-static void sha256_step2_host(uint32_t a, uint32_t b, uint32_t c, uint32_t &d,
-	uint32_t e, uint32_t f, uint32_t g, uint32_t &h,
-	uint32_t* in, uint32_t pc, const uint32_t Kshared)
-{
-	uint32_t t1,t2;
-
-	int pcidx1 = (pc-2)  & 0xF;
-	int pcidx2 = (pc-7)  & 0xF;
-	int pcidx3 = (pc-15) & 0xF;
-
-	uint32_t inx0 = in[pc];
-	uint32_t inx1 = in[pcidx1];
-	uint32_t inx2 = in[pcidx2];
-	uint32_t inx3 = in[pcidx3];
-
-	uint32_t ssg21 = ROTR(inx1, 17) ^ ROTR(inx1, 19) ^ SPH_T32((inx1) >> 10); //ssg2_1(inx1);
-	uint32_t ssg20 = ROTR(inx3, 7) ^ ROTR(inx3, 18) ^ SPH_T32((inx3) >> 3); //ssg2_0(inx3);
-	uint32_t vxandx = (((f) ^ (g)) & (e)) ^ (g); // xandx(e, f, g);
-	uint32_t bsg21 = ROTR(e, 6) ^ ROTR(e, 11) ^ ROTR(e, 25); // bsg2_1(e);
-	uint32_t bsg20 = ROTR(a, 2) ^ ROTR(a, 13) ^ ROTR(a, 22); //bsg2_0(a);
-	uint32_t andorv = ((b) & (c)) | (((b) | (c)) & (a)); //andor32(a,b,c);
-
-	in[pc] = ssg21 + inx2 + ssg20 + inx0;
-
-	t1 = h + bsg21 + vxandx + Kshared + in[pc];
-	t2 = bsg20 + andorv;
-	d =  d + t1;
-	h = t1 + t2;
-}
-
-__host__
-static void sha256_round_body_host(uint32_t* in, uint32_t* state, const uint32_t* Kshared)
-{
-	uint32_t a = state[0];
-	uint32_t b = state[1];
-	uint32_t c = state[2];
-	uint32_t d = state[3];
-	uint32_t e = state[4];
-	uint32_t f = state[5];
-	uint32_t g = state[6];
-	uint32_t h = state[7];
-
-	sha256_step1_host(a,b,c,d,e,f,g,h,in[ 0], Kshared[ 0]);
-	sha256_step1_host(h,a,b,c,d,e,f,g,in[ 1], Kshared[ 1]);
-	sha256_step1_host(g,h,a,b,c,d,e,f,in[ 2], Kshared[ 2]);
-	sha256_step1_host(f,g,h,a,b,c,d,e,in[ 3], Kshared[ 3]);
-	sha256_step1_host(e,f,g,h,a,b,c,d,in[ 4], Kshared[ 4]);
-	sha256_step1_host(d,e,f,g,h,a,b,c,in[ 5], Kshared[ 5]);
-	sha256_step1_host(c,d,e,f,g,h,a,b,in[ 6], Kshared[ 6]);
-	sha256_step1_host(b,c,d,e,f,g,h,a,in[ 7], Kshared[ 7]);
-	sha256_step1_host(a,b,c,d,e,f,g,h,in[ 8], Kshared[ 8]);
-	sha256_step1_host(h,a,b,c,d,e,f,g,in[ 9], Kshared[ 9]);
-	sha256_step1_host(g,h,a,b,c,d,e,f,in[10], Kshared[10]);
-	sha256_step1_host(f,g,h,a,b,c,d,e,in[11], Kshared[11]);
-	sha256_step1_host(e,f,g,h,a,b,c,d,in[12], Kshared[12]);
-	sha256_step1_host(d,e,f,g,h,a,b,c,in[13], Kshared[13]);
-	sha256_step1_host(c,d,e,f,g,h,a,b,in[14], Kshared[14]);
-	sha256_step1_host(b,c,d,e,f,g,h,a,in[15], Kshared[15]);
-
-	for (int i=0; i<3; i++)
-	{
-		sha256_step2_host(a,b,c,d,e,f,g,h,in,0, Kshared[16+16*i]);
-		sha256_step2_host(h,a,b,c,d,e,f,g,in,1, Kshared[17+16*i]);
-		sha256_step2_host(g,h,a,b,c,d,e,f,in,2, Kshared[18+16*i]);
-		sha256_step2_host(f,g,h,a,b,c,d,e,in,3, Kshared[19+16*i]);
-		sha256_step2_host(e,f,g,h,a,b,c,d,in,4, Kshared[20+16*i]);
-		sha256_step2_host(d,e,f,g,h,a,b,c,in,5, Kshared[21+16*i]);
-		sha256_step2_host(c,d,e,f,g,h,a,b,in,6, Kshared[22+16*i]);
-		sha256_step2_host(b,c,d,e,f,g,h,a,in,7, Kshared[23+16*i]);
-		sha256_step2_host(a,b,c,d,e,f,g,h,in,8, Kshared[24+16*i]);
-		sha256_step2_host(h,a,b,c,d,e,f,g,in,9, Kshared[25+16*i]);
-		sha256_step2_host(g,h,a,b,c,d,e,f,in,10,Kshared[26+16*i]);
-		sha256_step2_host(f,g,h,a,b,c,d,e,in,11,Kshared[27+16*i]);
-		sha256_step2_host(e,f,g,h,a,b,c,d,in,12,Kshared[28+16*i]);
-		sha256_step2_host(d,e,f,g,h,a,b,c,in,13,Kshared[29+16*i]);
-		sha256_step2_host(c,d,e,f,g,h,a,b,in,14,Kshared[30+16*i]);
-		sha256_step2_host(b,c,d,e,f,g,h,a,in,15,Kshared[31+16*i]);
-	}
-
-	state[0] += a;
-	state[1] += b;
-	state[2] += c;
-	state[3] += d;
-	state[4] += e;
-	state[5] += f;
-	state[6] += g;
-	state[7] += h;
-}
-
-#define xor3b(a,b,c) (a ^ b ^ c)
-
-__device__ __forceinline__ uint32_t bsg2_0(const uint32_t x)
-{
-	return xor3b(ROTR32(x,2),ROTR32(x,13),ROTR32(x,22));
-}
-
-__device__ __forceinline__ uint32_t bsg2_1(const uint32_t x)
-{
-	return xor3b(ROTR32(x,6),ROTR32(x,11),ROTR32(x,25));
-}
-
-__device__ __forceinline__ uint32_t ssg2_0(const uint32_t x)
-{
-	return xor3b(ROTR32(x,7),ROTR32(x,18),(x>>3));
-}
-
-__device__ __forceinline__ uint32_t ssg2_1(const uint32_t x)
-{
-	return xor3b(ROTR32(x,17),ROTR32(x,19),(x>>10));
-}
-
-__device__ __forceinline__ uint32_t andor32(const uint32_t a, const uint32_t b, const uint32_t c)
-{
-	uint32_t result;
-	asm("{\n\t"
-		".reg .u32 m,n,o;\n\t"
-		"and.b32 m,  %1, %2;\n\t"
-		" or.b32 n,  %1, %2;\n\t"
-		"and.b32 o,   n, %3;\n\t"
-		" or.b32 %0,  m, o ;\n\t"
-		"}\n\t" : "=r"(result) : "r"(a), "r"(b), "r"(c)
-	);
-	return result;
-}
-
-__device__ __forceinline__ uint2 vectorizeswap(uint64_t v) {
-	uint2 result;
-	asm("mov.b64 {%0,%1},%2; \n\t"
-		: "=r"(result.y), "=r"(result.x) : "l"(v));
-	return result;
-}
-
-__device__
-static void sha2_step1(uint32_t a, uint32_t b, uint32_t c, uint32_t &d, uint32_t e, uint32_t f, uint32_t g, uint32_t &h,
-	uint32_t in, const uint32_t Kshared)
-{
-	uint32_t t1,t2;
-	uint32_t vxandx = xandx(e, f, g);
-	uint32_t bsg21 = bsg2_1(e);
-	uint32_t bsg20 = bsg2_0(a);
-	uint32_t andorv = andor32(a,b,c);
-
-	t1 = h + bsg21 + vxandx + Kshared + in;
-	t2 = bsg20 + andorv;
-	d = d + t1;
-	h = t1 + t2;
-}
-
-__device__
-static void sha2_step2(uint32_t a, uint32_t b, uint32_t c, uint32_t &d, uint32_t e, uint32_t f, uint32_t g, uint32_t &h,
-	uint32_t* in, uint32_t pc, const uint32_t Kshared)
-{
-	uint32_t t1,t2;
-
-	int pcidx1 = (pc-2) & 0xF;
-	int pcidx2 = (pc-7) & 0xF;
-	int pcidx3 = (pc-15) & 0xF;
-
-	uint32_t inx0 = in[pc];
-	uint32_t inx1 = in[pcidx1];
-	uint32_t inx2 = in[pcidx2];
-	uint32_t inx3 = in[pcidx3];
-
-	uint32_t ssg21 = ssg2_1(inx1);
-	uint32_t ssg20 = ssg2_0(inx3);
-	uint32_t vxandx = xandx(e, f, g);
-	uint32_t bsg21 = bsg2_1(e);
-	uint32_t bsg20 = bsg2_0(a);
-	uint32_t andorv = andor32(a,b,c);
-
-	in[pc] = ssg21 + inx2 + ssg20 + inx0;
-
-	t1 = h + bsg21 + vxandx + Kshared + in[pc];
-	t2 = bsg20 + andorv;
-	d =  d + t1;
-	h = t1 + t2;
-}
-
-__device__
-static void sha256_round_body(uint32_t* in, uint32_t* state, uint32_t* const Kshared)
-{
-	uint32_t a = state[0];
-	uint32_t b = state[1];
-	uint32_t c = state[2];
-	uint32_t d = state[3];
-	uint32_t e = state[4];
-	uint32_t f = state[5];
-	uint32_t g = state[6];
-	uint32_t h = state[7];
-
-	sha2_step1(a,b,c,d,e,f,g,h,in[ 0], Kshared[ 0]);
-	sha2_step1(h,a,b,c,d,e,f,g,in[ 1], Kshared[ 1]);
-	sha2_step1(g,h,a,b,c,d,e,f,in[ 2], Kshared[ 2]);
-	sha2_step1(f,g,h,a,b,c,d,e,in[ 3], Kshared[ 3]);
-	sha2_step1(e,f,g,h,a,b,c,d,in[ 4], Kshared[ 4]);
-	sha2_step1(d,e,f,g,h,a,b,c,in[ 5], Kshared[ 5]);
-	sha2_step1(c,d,e,f,g,h,a,b,in[ 6], Kshared[ 6]);
-	sha2_step1(b,c,d,e,f,g,h,a,in[ 7], Kshared[ 7]);
-	sha2_step1(a,b,c,d,e,f,g,h,in[ 8], Kshared[ 8]);
-	sha2_step1(h,a,b,c,d,e,f,g,in[ 9], Kshared[ 9]);
-	sha2_step1(g,h,a,b,c,d,e,f,in[10], Kshared[10]);
-	sha2_step1(f,g,h,a,b,c,d,e,in[11], Kshared[11]);
-	sha2_step1(e,f,g,h,a,b,c,d,in[12], Kshared[12]);
-	sha2_step1(d,e,f,g,h,a,b,c,in[13], Kshared[13]);
-	sha2_step1(c,d,e,f,g,h,a,b,in[14], Kshared[14]);
-	sha2_step1(b,c,d,e,f,g,h,a,in[15], Kshared[15]);
-
-	#pragma unroll
-	for (int i=0; i<3; i++)
-	{
-		sha2_step2(a,b,c,d,e,f,g,h,in,0, Kshared[16+16*i]);
-		sha2_step2(h,a,b,c,d,e,f,g,in,1, Kshared[17+16*i]);
-		sha2_step2(g,h,a,b,c,d,e,f,in,2, Kshared[18+16*i]);
-		sha2_step2(f,g,h,a,b,c,d,e,in,3, Kshared[19+16*i]);
-		sha2_step2(e,f,g,h,a,b,c,d,in,4, Kshared[20+16*i]);
-		sha2_step2(d,e,f,g,h,a,b,c,in,5, Kshared[21+16*i]);
-		sha2_step2(c,d,e,f,g,h,a,b,in,6, Kshared[22+16*i]);
-		sha2_step2(b,c,d,e,f,g,h,a,in,7, Kshared[23+16*i]);
-		sha2_step2(a,b,c,d,e,f,g,h,in,8, Kshared[24+16*i]);
-		sha2_step2(h,a,b,c,d,e,f,g,in,9, Kshared[25+16*i]);
-		sha2_step2(g,h,a,b,c,d,e,f,in,10,Kshared[26+16*i]);
-		sha2_step2(f,g,h,a,b,c,d,e,in,11,Kshared[27+16*i]);
-		sha2_step2(e,f,g,h,a,b,c,d,in,12,Kshared[28+16*i]);
-		sha2_step2(d,e,f,g,h,a,b,c,in,13,Kshared[29+16*i]);
-		sha2_step2(c,d,e,f,g,h,a,b,in,14,Kshared[30+16*i]);
-		sha2_step2(b,c,d,e,f,g,h,a,in,15,Kshared[31+16*i]);
-	}
-
-	state[0] += a;
-	state[1] += b;
-	state[2] += c;
-	state[3] += d;
-	state[4] += e;
-	state[5] += f;
-	state[6] += g;
-	state[7] += h;
-}
-
-__device__
-static void sha256_round_last(uint32_t* in, uint32_t* state, uint32_t* const Kshared)
-{
-	uint32_t a = state[0];
-	uint32_t b = state[1];
-	uint32_t c = state[2];
-	uint32_t d = state[3];
-	uint32_t e = state[4];
-	uint32_t f = state[5];
-	uint32_t g = state[6];
-	uint32_t h = state[7];
-
-	sha2_step1(a,b,c,d, e,f,g,h, in[ 0], Kshared[ 0]);
-	sha2_step1(h,a,b,c, d,e,f,g, in[ 1], Kshared[ 1]);
-	sha2_step1(g,h,a,b, c,d,e,f, in[ 2], Kshared[ 2]);
-	sha2_step1(f,g,h,a, b,c,d,e, in[ 3], Kshared[ 3]);
-	sha2_step1(e,f,g,h, a,b,c,d, in[ 4], Kshared[ 4]);
-	sha2_step1(d,e,f,g, h,a,b,c, in[ 5], Kshared[ 5]);
-	sha2_step1(c,d,e,f, g,h,a,b, in[ 6], Kshared[ 6]);
-	sha2_step1(b,c,d,e, f,g,h,a, in[ 7], Kshared[ 7]);
-	sha2_step1(a,b,c,d, e,f,g,h, in[ 8], Kshared[ 8]);
-	sha2_step1(h,a,b,c, d,e,f,g, in[ 9], Kshared[ 9]);
-	sha2_step1(g,h,a,b, c,d,e,f, in[10], Kshared[10]);
-	sha2_step1(f,g,h,a, b,c,d,e, in[11], Kshared[11]);
-	sha2_step1(e,f,g,h, a,b,c,d, in[12], Kshared[12]);
-	sha2_step1(d,e,f,g, h,a,b,c, in[13], Kshared[13]);
-	sha2_step1(c,d,e,f, g,h,a,b, in[14], Kshared[14]);
-	sha2_step1(b,c,d,e, f,g,h,a, in[15], Kshared[15]);
-
-	#pragma unroll
-	for (int i=0; i<2; i++)
-	{
-		sha2_step2(a,b,c,d, e,f,g,h, in, 0, Kshared[16+16*i]);
-		sha2_step2(h,a,b,c, d,e,f,g, in, 1, Kshared[17+16*i]);
-		sha2_step2(g,h,a,b, c,d,e,f, in, 2, Kshared[18+16*i]);
-		sha2_step2(f,g,h,a, b,c,d,e, in, 3, Kshared[19+16*i]);
-		sha2_step2(e,f,g,h, a,b,c,d, in, 4, Kshared[20+16*i]);
-		sha2_step2(d,e,f,g, h,a,b,c, in, 5, Kshared[21+16*i]);
-		sha2_step2(c,d,e,f, g,h,a,b, in, 6, Kshared[22+16*i]);
-		sha2_step2(b,c,d,e, f,g,h,a, in, 7, Kshared[23+16*i]);
-		sha2_step2(a,b,c,d, e,f,g,h, in, 8, Kshared[24+16*i]);
-		sha2_step2(h,a,b,c, d,e,f,g, in, 9, Kshared[25+16*i]);
-		sha2_step2(g,h,a,b, c,d,e,f, in,10, Kshared[26+16*i]);
-		sha2_step2(f,g,h,a, b,c,d,e, in,11, Kshared[27+16*i]);
-		sha2_step2(e,f,g,h, a,b,c,d, in,12, Kshared[28+16*i]);
-		sha2_step2(d,e,f,g, h,a,b,c, in,13, Kshared[29+16*i]);
-		sha2_step2(c,d,e,f, g,h,a,b, in,14, Kshared[30+16*i]);
-		sha2_step2(b,c,d,e, f,g,h,a, in,15, Kshared[31+16*i]);
-	}
-
-	sha2_step2(a,b,c,d, e,f,g,h, in, 0, Kshared[16+16*2]);
-	sha2_step2(h,a,b,c, d,e,f,g, in, 1, Kshared[17+16*2]);
-	sha2_step2(g,h,a,b, c,d,e,f, in, 2, Kshared[18+16*2]);
-	sha2_step2(f,g,h,a, b,c,d,e, in, 3, Kshared[19+16*2]);
-	sha2_step2(e,f,g,h, a,b,c,d, in, 4, Kshared[20+16*2]);
-	sha2_step2(d,e,f,g, h,a,b,c, in, 5, Kshared[21+16*2]);
-	sha2_step2(c,d,e,f, g,h,a,b, in, 6, Kshared[22+16*2]);
-	sha2_step2(b,c,d,e, f,g,h,a, in, 7, Kshared[23+16*2]);
-	sha2_step2(a,b,c,d, e,f,g,h, in, 8, Kshared[24+16*2]);
-	sha2_step2(h,a,b,c, d,e,f,g, in, 9, Kshared[25+16*2]);
-	sha2_step2(g,h,a,b, c,d,e,f, in,10, Kshared[26+16*2]);
-	sha2_step2(f,g,h,a, b,c,d,e, in,11, Kshared[27+16*2]);
-	sha2_step2(e,f,g,h, a,b,c,d, in,12, Kshared[28+16*2]);
-	sha2_step2(d,e,f,g, h,a,b,c, in,13, Kshared[29+16*2]);
-
-	state[6] += g;
-	state[7] += h;
-}
-
-__device__ __forceinline__
-uint64_t cuda_swab32ll(uint64_t x) {
-	return MAKE_ULONGLONG(cuda_swab32(_LODWORD(x)), cuda_swab32(_HIDWORD(x)));
-}
-
-__global__
-/*__launch_bounds__(256,3)*/
-void sha256d_gpu_hash_shared(const uint32_t threads, const uint32_t startNonce, uint32_t *resNonces)
-{
-	const uint32_t thread = (blockDim.x * blockIdx.x + threadIdx.x);
-
-	__shared__ uint32_t s_K[64*4];
-	//s_K[thread & 63] = c_K[thread & 63];
-	if (threadIdx.x < 64U) s_K[threadIdx.x] = c_K[threadIdx.x];
-
-	if (thread < threads)
-	{
-		const uint32_t nonce = startNonce + thread;
-
-		uint32_t dat[16];
-		AS_UINT2(dat) = AS_UINT2(c_dataEnd80);
-		dat[ 2] = c_dataEnd80[2];
-		dat[ 3] = nonce;
-		dat[ 4] = 0x80000000;
-		dat[15] = 0x280;
-		#pragma unroll
-		for (int i=5; i<15; i++) dat[i] = 0;
-
-		uint32_t buf[8];
-		#pragma unroll
-		for (int i=0; i<8; i+=2) AS_UINT2(&buf[i]) = AS_UINT2(&c_midstate76[i]);
-		//for (int i=0; i<8; i++) buf[i] = c_midstate76[i];
-
-		sha256_round_body(dat, buf, s_K);
-
-		// second sha256
-
-		#pragma unroll
-		for (int i=0; i<8; i++) dat[i] = buf[i];
-		dat[8] = 0x80000000;
-		#pragma unroll
-		for (int i=9; i<15; i++) dat[i] = 0;
-		dat[15] = 0x100;
-
-		#pragma unroll
-		for (int i=0; i<8; i++) buf[i] = c_H256[i];
-
-		sha256_round_last(dat, buf, s_K);
-
-		// valid nonces
-		uint64_t high = cuda_swab32ll(((uint64_t*)buf)[3]);
-		if (high <= c_target[0]) {
-			//printf("%08x %08x - %016llx %016llx - %08x %08x\n", buf[7], buf[6], high, d_target[0], c_target[1], c_target[0]);
-			resNonces[1] = atomicExch(resNonces, nonce);
-			//d_target[0] = high;
-		}
-	}
-}
-
 __host__
 void sha256d_init(int thr_id)
 {
 	cuda_get_arch(thr_id);
-	cudaMemcpyToSymbol(c_K, cpu_K, sizeof(cpu_K), 0, cudaMemcpyHostToDevice);
 	CUDA_SAFE_CALL(cudaMalloc(&d_resNonces[thr_id], 2*sizeof(uint32_t)));
 }
 
@@ -443,31 +32,648 @@ void sha256d_free(int thr_id)
 }
 
 __host__
-void sha256d_setBlock_80(uint32_t *pdata, uint32_t *ptarget)
+void sha256d_midstate(const uint32_t* data, uint32_t* midstate)
 {
-	uint32_t _ALIGN(64) in[16], buf[8], end[4];
-	for (int i=0;i<16;i++) in[i] = cuda_swab32(pdata[i]);
-	for (int i=0;i<8;i++) buf[i] = cpu_H256[i];
-	for (int i=0;i<4;i++) end[i] = cuda_swab32(pdata[16+i]);
-	sha256_round_body_host(in, buf, cpu_K);
+	int i;
+	uint32_t s0, s1, t1, t2, maj, ch, a, b, c, d, e, f, g, h;
+	uint32_t w[64];
 
-	CUDA_SAFE_CALL(cudaMemcpyToSymbol(c_midstate76, buf, 32, 0, cudaMemcpyHostToDevice));
-	CUDA_SAFE_CALL(cudaMemcpyToSymbol(c_dataEnd80,  end, sizeof(end), 0, cudaMemcpyHostToDevice));
-	CUDA_SAFE_CALL(cudaMemcpyToSymbol(c_target, &ptarget[6], 8, 0, cudaMemcpyHostToDevice));
-	CUDA_SAFE_CALL(cudaMemcpyToSymbol(d_target, &ptarget[6], 8, 0, cudaMemcpyHostToDevice));
+	const uint32_t k[64] = {
+		0x428a2f98U, 0x71374491U, 0xb5c0fbcfU, 0xe9b5dba5U, 0x3956c25bU, 0x59f111f1U, 0x923f82a4U, 0xab1c5ed5U,
+		0xd807aa98U, 0x12835b01U, 0x243185beU, 0x550c7dc3U, 0x72be5d74U, 0x80deb1feU, 0x9bdc06a7U, 0xc19bf174U,
+		0xe49b69c1U, 0xefbe4786U, 0x0fc19dc6U, 0x240ca1ccU, 0x2de92c6fU, 0x4a7484aaU, 0x5cb0a9dcU, 0x76f988daU,
+		0x983e5152U, 0xa831c66dU, 0xb00327c8U, 0xbf597fc7U, 0xc6e00bf3U, 0xd5a79147U, 0x06ca6351U, 0x14292967U,
+		0x27b70a85U, 0x2e1b2138U, 0x4d2c6dfcU, 0x53380d13U, 0x650a7354U, 0x766a0abbU, 0x81c2c92eU, 0x92722c85U,
+		0xa2bfe8a1U, 0xa81a664bU, 0xc24b8b70U, 0xc76c51a3U, 0xd192e819U, 0xd6990624U, 0xf40e3585U, 0x106aa070U,
+		0x19a4c116U, 0x1e376c08U, 0x2748774cU, 0x34b0bcb5U, 0x391c0cb3U, 0x4ed8aa4aU, 0x5b9cca4fU, 0x682e6ff3U,
+		0x748f82eeU, 0x78a5636fU, 0x84c87814U, 0x8cc70208U, 0x90befffaU, 0xa4506cebU, 0xbef9a3f7U, 0xc67178f2U
+	};
+	const uint32_t hc[8] = {
+		0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU,
+		0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U
+	};
+
+	for (i = 0; i <= 15; ++i)
+	{
+		w[i] = data[i];
+	}
+	for (i = 16; i <= 63; ++i)
+	{
+		s0 = ROTR32(w[i - 15], 7) ^ ROTR32(w[i - 15], 18) ^ (w[i - 15] >> 3);
+		s1 = ROTR32(w[i - 2], 17) ^ ROTR32(w[i - 2], 19) ^ (w[i - 2] >> 10);
+		w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+	}
+	a = hc[0];
+	b = hc[1];
+	c = hc[2];
+	d = hc[3];
+	e = hc[4];
+	f = hc[5];
+	g = hc[6];
+	h = hc[7];
+	for (i = 0; i <= 63; ++i)
+	{
+		s0 = ROTR32(a, 2) ^ ROTR32(a, 13) ^ ROTR32(a, 22);
+		maj = (a & b) ^ (a & c) ^ (b & c);
+		t2 = s0 + maj;
+		s1 = ROTR32(e, 6) ^ ROTR32(e, 11) ^ ROTR32(e, 25);
+		ch = (e & f) ^ ((~e) & g);
+		t1 = h + s1 + ch + k[i] + w[i];
+		h = g;
+		g = f;
+		f = e;
+		e = d + t1;
+		d = c;
+		c = b;
+		b = a;
+		a = t1 + t2;
+	}
+	midstate[0] = a + hc[0];
+	midstate[1] = b + hc[1];
+	midstate[2] = c + hc[2];
+	midstate[3] = d + hc[3];
+	midstate[4] = e + hc[4];
+	midstate[5] = f + hc[5];
+	midstate[6] = g + hc[6];
+	midstate[7] = h + hc[7];
+}
+
+__global__ __launch_bounds__(TPB, 2)
+void sha256d_gpu_hash(const uint32_t threads, const uint32_t startNounce, uint32_t* const result, const uint32_t t1c, const uint32_t t2c, const uint32_t w16, const uint32_t w16rot, const uint32_t w17, const uint32_t w17rot, const uint32_t b2, const uint32_t c2, const uint32_t d2, const uint32_t f2, const uint32_t g2, const uint32_t h2, const uint32_t ms0, const uint32_t ms1, const uint32_t ms2, const uint32_t ms3, const uint32_t ms4, const uint32_t ms5, const uint32_t ms6, const uint32_t ms7, const uint32_t compacttarget)
+{
+	const uint32_t threadindex = (blockDim.x * blockIdx.x + threadIdx.x);
+	if (threadindex < threads)
+	{
+		uint32_t t1, a, b, c, d, e, f, g, h;
+		uint32_t w[64];
+		const uint32_t numberofthreads = blockDim.x * gridDim.x;
+		const uint32_t maxnonce = startNounce + threadindex + numberofthreads * NONCES_PER_THREAD - 1;
+
+#pragma unroll 
+		for (uint32_t nonce = startNounce + threadindex; nonce - 1 < maxnonce; nonce += numberofthreads)
+		{
+			w[18] = (ROTR32(nonce, 7) ^ ROTR32(nonce, 18) ^ (nonce >> 3)) + w16rot;
+			w[19] = nonce + w17rot;
+			w[20] = 0x80000000U + (ROTR32(w[18], 17) ^ ROTR32(w[18], 19) ^ (w[18] >> 10));
+			w[21] = (ROTR32(w[19], 17) ^ ROTR32(w[19], 19) ^ (w[19] >> 10));
+			w[22] = 0x280U + (ROTR32(w[20], 17) ^ ROTR32(w[20], 19) ^ (w[20] >> 10));
+			w[23] = w16 + (ROTR32(w[21], 17) ^ ROTR32(w[21], 19) ^ (w[21] >> 10));
+			w[24] = w17 + (ROTR32(w[22], 17) ^ ROTR32(w[22], 19) ^ (w[22] >> 10));
+			w[25] = w[18] + (ROTR32(w[23], 17) ^ ROTR32(w[23], 19) ^ (w[23] >> 10));
+			w[26] = w[19] + (ROTR32(w[24], 17) ^ ROTR32(w[24], 19) ^ (w[24] >> 10));
+			w[27] = w[20] + (ROTR32(w[25], 17) ^ ROTR32(w[25], 19) ^ (w[25] >> 10));
+			w[28] = w[21] + (ROTR32(w[26], 17) ^ ROTR32(w[26], 19) ^ (w[26] >> 10));
+			w[29] = w[22] + (ROTR32(w[27], 17) ^ ROTR32(w[27], 19) ^ (w[27] >> 10));
+			w[30] = w[23] + 0xa00055U + (ROTR32(w[28], 17) ^ ROTR32(w[28], 19) ^ (w[28] >> 10));
+			w[31] = 0x280U + w[24] + (ROTR32(w16, 7) ^ ROTR32(w16, 18) ^ (w16 >> 3)) + (ROTR32(w[29], 17) ^ ROTR32(w[29], 19) ^ (w[29] >> 10));
+			w[32] = w16 + w[25] + (ROTR32(w17, 7) ^ ROTR32(w17, 18) ^ (w17 >> 3)) + (ROTR32(w[30], 17) ^ ROTR32(w[30], 19) ^ (w[30] >> 10));
+			w[33] = w17 + w[26] + (ROTR32(w[18], 7) ^ ROTR32(w[18], 18) ^ (w[18] >> 3)) + (ROTR32(w[31], 17) ^ ROTR32(w[31], 19) ^ (w[31] >> 10));
+#pragma unroll
+			for (int i = 34; i < 62; ++i)
+				w[i] = w[i - 16] + w[i - 7] + (ROTR32(w[i - 15], 7) ^ ROTR32(w[i - 15], 18) ^ (w[i - 15] >> 3)) + (ROTR32(w[i - 2], 17) ^ ROTR32(w[i - 2], 19) ^ (w[i - 2] >> 10));
+
+			t1 = t1c + (uint32_t)nonce;
+			a = ms0 + t1;
+			e = t1 + t2c;
+			//
+			t1 = d2 + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c2 ^ (a & (b2 ^ c2))) + 0xb956c25bU;
+			h = h2 + t1;
+			d = t1 + (ROTR32(e, 2) ^ ROTR32(e, 13) ^ ROTR32(e, 22)) + ((g2 & f2) | (e & (g2 | f2)));
+			//
+			t1 = c2 + (ROTR32(h, 6) ^ ROTR32(h, 11) ^ ROTR32(h, 25)) + (b2 ^ (h & (a ^ b2))) + 0x59f111f1U;
+			g = g2 + t1;
+			c = t1 + (ROTR32(d, 2) ^ ROTR32(d, 13) ^ ROTR32(d, 22)) + ((f2 & e) | (d & (f2 | e)));
+			//
+			t1 = b2 + (ROTR32(g, 6) ^ ROTR32(g, 11) ^ ROTR32(g, 25)) + (a ^ (g & (h ^ a))) + 0x923f82a4U;
+			f = f2 + t1;
+			b = t1 + (ROTR32(c, 2) ^ ROTR32(c, 13) ^ ROTR32(c, 22)) + ((e & d) | (c & (e | d)));
+			//
+			t1 = a + (ROTR32(f, 6) ^ ROTR32(f, 11) ^ ROTR32(f, 25)) + (h ^ (f & (g ^ h))) + 0xab1c5ed5U;
+			e += t1;
+			a = t1 + (ROTR32(b, 2) ^ ROTR32(b, 13) ^ ROTR32(b, 22)) + ((d & c) | (b & (d | c)));
+			//
+			t1 = h + (ROTR32(e, 6) ^ ROTR32(e, 11) ^ ROTR32(e, 25)) + (g ^ (e & (f ^ g))) + 0xd807aa98U;
+			d += t1;
+			h = t1 + (ROTR32(a, 2) ^ ROTR32(a, 13) ^ ROTR32(a, 22)) + ((c & b) | (a & (c | b)));
+			//
+			t1 = g + (ROTR32(d, 6) ^ ROTR32(d, 11) ^ ROTR32(d, 25)) + (f ^ (d & (e ^ f))) + 0x12835b01U;
+			c += t1;
+			g = t1 + (ROTR32(h, 2) ^ ROTR32(h, 13) ^ ROTR32(h, 22)) + ((b & a) | (h & (b | a)));
+			//
+			t1 = f + (ROTR32(c, 6) ^ ROTR32(c, 11) ^ ROTR32(c, 25)) + (e ^ (c & (d ^ e))) + 0x243185beU;
+			b += t1;
+			f = t1 + (ROTR32(g, 2) ^ ROTR32(g, 13) ^ ROTR32(g, 22)) + ((a & h) | (g & (a | h)));
+			//
+			t1 = e + (ROTR32(b, 6) ^ ROTR32(b, 11) ^ ROTR32(b, 25)) + (d ^ (b & (c ^ d))) + 0x550c7dc3U;
+			a += t1;
+			e = t1 + (ROTR32(f, 2) ^ ROTR32(f, 13) ^ ROTR32(f, 22)) + ((h & g) | (f & (h | g)));
+			//
+			t1 = d + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c ^ (a & (b ^ c))) + 0x72be5d74U;
+			h += t1;
+			d = t1 + (ROTR32(e, 2) ^ ROTR32(e, 13) ^ ROTR32(e, 22)) + ((g & f) | (e & (g | f)));
+			//
+			t1 = c + (ROTR32(h, 6) ^ ROTR32(h, 11) ^ ROTR32(h, 25)) + (b ^ (h & (a ^ b))) + 0x80deb1feU;
+			g += t1;
+			c = t1 + (ROTR32(d, 2) ^ ROTR32(d, 13) ^ ROTR32(d, 22)) + ((f & e) | (d & (f | e)));
+			//
+			t1 = b + (ROTR32(g, 6) ^ ROTR32(g, 11) ^ ROTR32(g, 25)) + (a ^ (g & (h ^ a))) + 0x9bdc06a7U;
+			f += t1;
+			b = t1 + (ROTR32(c, 2) ^ ROTR32(c, 13) ^ ROTR32(c, 22)) + ((e & d) | (c & (e | d)));
+			//
+			t1 = a + (ROTR32(f, 6) ^ ROTR32(f, 11) ^ ROTR32(f, 25)) + (h ^ (f & (g ^ h))) + 0xc19bf3f4U;
+			e += t1;
+			a = t1 + (ROTR32(b, 2) ^ ROTR32(b, 13) ^ ROTR32(b, 22)) + ((d & c) | (b & (d | c)));
+			//
+			t1 = h + (ROTR32(e, 6) ^ ROTR32(e, 11) ^ ROTR32(e, 25)) + (g ^ (e & (f ^ g))) + 0xe49b69c1U + w16;
+			d += t1;
+			h = t1 + (ROTR32(a, 2) ^ ROTR32(a, 13) ^ ROTR32(a, 22)) + ((c & b) | (a & (c | b)));
+			//
+			t1 = g + (ROTR32(d, 6) ^ ROTR32(d, 11) ^ ROTR32(d, 25)) + (f ^ (d & (e ^ f))) + 0xefbe4786U + w17;
+			c += t1;
+			g = t1 + (ROTR32(h, 2) ^ ROTR32(h, 13) ^ ROTR32(h, 22)) + ((b & a) | (h & (b | a)));
+			//
+			t1 = f + (ROTR32(c, 6) ^ ROTR32(c, 11) ^ ROTR32(c, 25)) + (e ^ (c & (d ^ e))) + 0x0fc19dc6U + w[18];
+			b += t1;
+			f = t1 + (ROTR32(g, 2) ^ ROTR32(g, 13) ^ ROTR32(g, 22)) + ((a & h) | (g & (a | h)));
+			//
+			t1 = e + (ROTR32(b, 6) ^ ROTR32(b, 11) ^ ROTR32(b, 25)) + (d ^ (b & (c ^ d))) + 0x240ca1ccU + w[19];
+			a += t1;
+			e = t1 + (ROTR32(f, 2) ^ ROTR32(f, 13) ^ ROTR32(f, 22)) + ((h & g) | (f & (h | g)));
+			//
+			t1 = d + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c ^ (a & (b ^ c))) + 0x2de92c6fU + w[20];
+			h += t1;
+			d = t1 + (ROTR32(e, 2) ^ ROTR32(e, 13) ^ ROTR32(e, 22)) + ((g & f) | (e & (g | f)));
+			//
+			t1 = c + (ROTR32(h, 6) ^ ROTR32(h, 11) ^ ROTR32(h, 25)) + (b ^ (h & (a ^ b))) + 0x4a7484aaU + w[21];
+			g += t1;
+			c = t1 + (ROTR32(d, 2) ^ ROTR32(d, 13) ^ ROTR32(d, 22)) + ((f & e) | (d & (f | e)));
+			//
+			t1 = b + (ROTR32(g, 6) ^ ROTR32(g, 11) ^ ROTR32(g, 25)) + (a ^ (g & (h ^ a))) + 0x5cb0a9dcU + w[22];
+			f += t1;
+			b = t1 + (ROTR32(c, 2) ^ ROTR32(c, 13) ^ ROTR32(c, 22)) + ((e & d) | (c & (e | d)));
+			//
+			t1 = a + (ROTR32(f, 6) ^ ROTR32(f, 11) ^ ROTR32(f, 25)) + (h ^ (f & (g ^ h))) + 0x76f988daU + w[23];
+			e += t1;
+			a = t1 + (ROTR32(b, 2) ^ ROTR32(b, 13) ^ ROTR32(b, 22)) + ((d & c) | (b & (d | c)));
+			//
+			t1 = h + (ROTR32(e, 6) ^ ROTR32(e, 11) ^ ROTR32(e, 25)) + (g ^ (e & (f ^ g))) + 0x983e5152U + w[24];
+			d += t1;
+			h = t1 + (ROTR32(a, 2) ^ ROTR32(a, 13) ^ ROTR32(a, 22)) + ((c & b) | (a & (c | b)));
+			//
+			t1 = g + (ROTR32(d, 6) ^ ROTR32(d, 11) ^ ROTR32(d, 25)) + (f ^ (d & (e ^ f))) + 0xa831c66dU + w[25];
+			c += t1;
+			g = t1 + (ROTR32(h, 2) ^ ROTR32(h, 13) ^ ROTR32(h, 22)) + ((b & a) | (h & (b | a)));
+			//
+			t1 = f + (ROTR32(c, 6) ^ ROTR32(c, 11) ^ ROTR32(c, 25)) + (e ^ (c & (d ^ e))) + 0xb00327c8U + w[26];
+			b += t1;
+			f = t1 + (ROTR32(g, 2) ^ ROTR32(g, 13) ^ ROTR32(g, 22)) + ((a & h) | (g & (a | h)));
+			//
+			t1 = e + (ROTR32(b, 6) ^ ROTR32(b, 11) ^ ROTR32(b, 25)) + (d ^ (b & (c ^ d))) + 0xbf597fc7U + w[27];
+			a += t1;
+			e = t1 + (ROTR32(f, 2) ^ ROTR32(f, 13) ^ ROTR32(f, 22)) + ((h & g) | (f & (h | g)));
+			//
+			t1 = d + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c ^ (a & (b ^ c))) + 0xc6e00bf3U + w[28];
+			h += t1;
+			d = t1 + (ROTR32(e, 2) ^ ROTR32(e, 13) ^ ROTR32(e, 22)) + ((g & f) | (e & (g | f)));
+			//
+			t1 = c + (ROTR32(h, 6) ^ ROTR32(h, 11) ^ ROTR32(h, 25)) + (b ^ (h & (a ^ b))) + 0xd5a79147U + w[29];
+			g += t1;
+			c = t1 + (ROTR32(d, 2) ^ ROTR32(d, 13) ^ ROTR32(d, 22)) + ((f & e) | (d & (f | e)));
+			//
+			t1 = b + (ROTR32(g, 6) ^ ROTR32(g, 11) ^ ROTR32(g, 25)) + (a ^ (g & (h ^ a))) + 0x06ca6351U + w[30];
+			f += t1;
+			b = t1 + (ROTR32(c, 2) ^ ROTR32(c, 13) ^ ROTR32(c, 22)) + ((e & d) | (c & (e | d)));
+			//
+			t1 = a + (ROTR32(f, 6) ^ ROTR32(f, 11) ^ ROTR32(f, 25)) + (h ^ (f & (g ^ h))) + 0x14292967U + w[31];
+			e += t1;
+			a = t1 + (ROTR32(b, 2) ^ ROTR32(b, 13) ^ ROTR32(b, 22)) + ((d & c) | (b & (d | c)));
+			//
+			t1 = h + (ROTR32(e, 6) ^ ROTR32(e, 11) ^ ROTR32(e, 25)) + (g ^ (e & (f ^ g))) + 0x27b70a85U + w[32];
+			d += t1;
+			h = t1 + (ROTR32(a, 2) ^ ROTR32(a, 13) ^ ROTR32(a, 22)) + ((c & b) | (a & (c | b)));
+			//
+			t1 = g + (ROTR32(d, 6) ^ ROTR32(d, 11) ^ ROTR32(d, 25)) + (f ^ (d & (e ^ f))) + 0x2e1b2138U + w[33];
+			c += t1;
+			g = t1 + (ROTR32(h, 2) ^ ROTR32(h, 13) ^ ROTR32(h, 22)) + ((b & a) | (h & (b | a)));
+			//
+			t1 = f + (ROTR32(c, 6) ^ ROTR32(c, 11) ^ ROTR32(c, 25)) + (e ^ (c & (d ^ e))) + 0x4d2c6dfcU + w[34];
+			b += t1;
+			f = t1 + (ROTR32(g, 2) ^ ROTR32(g, 13) ^ ROTR32(g, 22)) + ((a & h) | (g & (a | h)));
+			//
+			t1 = e + (ROTR32(b, 6) ^ ROTR32(b, 11) ^ ROTR32(b, 25)) + (d ^ (b & (c ^ d))) + 0x53380d13U + w[35];
+			a += t1;
+			e = t1 + (ROTR32(f, 2) ^ ROTR32(f, 13) ^ ROTR32(f, 22)) + ((h & g) | (f & (h | g)));
+			//
+			t1 = d + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c ^ (a & (b ^ c))) + 0x650a7354U + w[36];
+			h += t1;
+			d = t1 + (ROTR32(e, 2) ^ ROTR32(e, 13) ^ ROTR32(e, 22)) + ((g & f) | (e & (g | f)));
+			//
+			t1 = c + (ROTR32(h, 6) ^ ROTR32(h, 11) ^ ROTR32(h, 25)) + (b ^ (h & (a ^ b))) + 0x766a0abbU + w[37];
+			g += t1;
+			c = t1 + (ROTR32(d, 2) ^ ROTR32(d, 13) ^ ROTR32(d, 22)) + ((f & e) | (d & (f | e)));
+			//
+			t1 = b + (ROTR32(g, 6) ^ ROTR32(g, 11) ^ ROTR32(g, 25)) + (a ^ (g & (h ^ a))) + 0x81c2c92eU + w[38];
+			f += t1;
+			b = t1 + (ROTR32(c, 2) ^ ROTR32(c, 13) ^ ROTR32(c, 22)) + ((e & d) | (c & (e | d)));
+			//
+			t1 = a + (ROTR32(f, 6) ^ ROTR32(f, 11) ^ ROTR32(f, 25)) + (h ^ (f & (g ^ h))) + 0x92722c85U + w[39];
+			e += t1;
+			a = t1 + (ROTR32(b, 2) ^ ROTR32(b, 13) ^ ROTR32(b, 22)) + ((d & c) | (b & (d | c)));
+			//
+			t1 = h + (ROTR32(e, 6) ^ ROTR32(e, 11) ^ ROTR32(e, 25)) + (g ^ (e & (f ^ g))) + 0xa2bfe8a1U + w[40];
+			d += t1;
+			h = t1 + (ROTR32(a, 2) ^ ROTR32(a, 13) ^ ROTR32(a, 22)) + ((c & b) | (a & (c | b)));
+			//
+			t1 = g + (ROTR32(d, 6) ^ ROTR32(d, 11) ^ ROTR32(d, 25)) + (f ^ (d & (e ^ f))) + 0xa81a664bU + w[41];
+			c += t1;
+			g = t1 + (ROTR32(h, 2) ^ ROTR32(h, 13) ^ ROTR32(h, 22)) + ((b & a) | (h & (b | a)));
+			//
+			t1 = f + (ROTR32(c, 6) ^ ROTR32(c, 11) ^ ROTR32(c, 25)) + (e ^ (c & (d ^ e))) + 0xc24b8b70U + w[42];
+			b += t1;
+			f = t1 + (ROTR32(g, 2) ^ ROTR32(g, 13) ^ ROTR32(g, 22)) + ((a & h) | (g & (a | h)));
+			//
+			t1 = e + (ROTR32(b, 6) ^ ROTR32(b, 11) ^ ROTR32(b, 25)) + (d ^ (b & (c ^ d))) + 0xc76c51a3U + w[43];
+			a += t1;
+			e = t1 + (ROTR32(f, 2) ^ ROTR32(f, 13) ^ ROTR32(f, 22)) + ((h & g) | (f & (h | g)));
+			//
+			t1 = d + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c ^ (a & (b ^ c))) + 0xd192e819U + w[44];
+			h += t1;
+			d = t1 + (ROTR32(e, 2) ^ ROTR32(e, 13) ^ ROTR32(e, 22)) + ((g & f) | (e & (g | f)));
+			//
+			t1 = c + (ROTR32(h, 6) ^ ROTR32(h, 11) ^ ROTR32(h, 25)) + (b ^ (h & (a ^ b))) + 0xd6990624U + w[45];
+			g += t1;
+			c = t1 + (ROTR32(d, 2) ^ ROTR32(d, 13) ^ ROTR32(d, 22)) + ((f & e) | (d & (f | e)));
+			//
+			t1 = b + (ROTR32(g, 6) ^ ROTR32(g, 11) ^ ROTR32(g, 25)) + (a ^ (g & (h ^ a))) + 0xf40e3585U + w[46];
+			f += t1;
+			b = t1 + (ROTR32(c, 2) ^ ROTR32(c, 13) ^ ROTR32(c, 22)) + ((e & d) | (c & (e | d)));
+			//
+			t1 = a + (ROTR32(f, 6) ^ ROTR32(f, 11) ^ ROTR32(f, 25)) + (h ^ (f & (g ^ h))) + 0x106aa070U + w[47];
+			e += t1;
+			a = t1 + (ROTR32(b, 2) ^ ROTR32(b, 13) ^ ROTR32(b, 22)) + ((d & c) | (b & (d | c)));
+			//
+			t1 = h + (ROTR32(e, 6) ^ ROTR32(e, 11) ^ ROTR32(e, 25)) + (g ^ (e & (f ^ g))) + 0x19a4c116U + w[48];
+			d += t1;
+			h = t1 + (ROTR32(a, 2) ^ ROTR32(a, 13) ^ ROTR32(a, 22)) + ((c & b) | (a & (c | b)));
+			//
+			t1 = g + (ROTR32(d, 6) ^ ROTR32(d, 11) ^ ROTR32(d, 25)) + (f ^ (d & (e ^ f))) + 0x1e376c08U + w[49];
+			c += t1;
+			g = t1 + (ROTR32(h, 2) ^ ROTR32(h, 13) ^ ROTR32(h, 22)) + ((b & a) | (h & (b | a)));
+			//
+			t1 = f + (ROTR32(c, 6) ^ ROTR32(c, 11) ^ ROTR32(c, 25)) + (e ^ (c & (d ^ e))) + 0x2748774cU + w[50];
+			b += t1;
+			f = t1 + (ROTR32(g, 2) ^ ROTR32(g, 13) ^ ROTR32(g, 22)) + ((a & h) | (g & (a | h)));
+			//
+			t1 = e + (ROTR32(b, 6) ^ ROTR32(b, 11) ^ ROTR32(b, 25)) + (d ^ (b & (c ^ d))) + 0x34b0bcb5U + w[51];
+			a += t1;
+			e = t1 + (ROTR32(f, 2) ^ ROTR32(f, 13) ^ ROTR32(f, 22)) + ((h & g) | (f & (h | g)));
+			//
+			t1 = d + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c ^ (a & (b ^ c))) + 0x391c0cb3U + w[52];
+			h += t1;
+			d = t1 + (ROTR32(e, 2) ^ ROTR32(e, 13) ^ ROTR32(e, 22)) + ((g & f) | (e & (g | f)));
+			//
+			t1 = c + (ROTR32(h, 6) ^ ROTR32(h, 11) ^ ROTR32(h, 25)) + (b ^ (h & (a ^ b))) + 0x4ed8aa4aU + w[53];
+			g += t1;
+			c = t1 + (ROTR32(d, 2) ^ ROTR32(d, 13) ^ ROTR32(d, 22)) + ((f & e) | (d & (f | e)));
+			//
+			t1 = b + (ROTR32(g, 6) ^ ROTR32(g, 11) ^ ROTR32(g, 25)) + (a ^ (g & (h ^ a))) + 0x5b9cca4fU + w[54];
+			f += t1;
+			b = t1 + (ROTR32(c, 2) ^ ROTR32(c, 13) ^ ROTR32(c, 22)) + ((e & d) | (c & (e | d)));
+			//
+			t1 = a + (ROTR32(f, 6) ^ ROTR32(f, 11) ^ ROTR32(f, 25)) + (h ^ (f & (g ^ h))) + 0x682e6ff3U + w[55];
+			e += t1;
+			a = t1 + (ROTR32(b, 2) ^ ROTR32(b, 13) ^ ROTR32(b, 22)) + ((d & c) | (b & (d | c)));
+			//
+			t1 = h + (ROTR32(e, 6) ^ ROTR32(e, 11) ^ ROTR32(e, 25)) + (g ^ (e & (f ^ g))) + 0x748f82eeU + w[56];
+			d += t1;
+			h = t1 + (ROTR32(a, 2) ^ ROTR32(a, 13) ^ ROTR32(a, 22)) + ((c & b) | (a & (c | b)));
+			//
+			t1 = g + (ROTR32(d, 6) ^ ROTR32(d, 11) ^ ROTR32(d, 25)) + (f ^ (d & (e ^ f))) + 0x78a5636fU + w[57];
+			c += t1;
+			g = t1 + (ROTR32(h, 2) ^ ROTR32(h, 13) ^ ROTR32(h, 22)) + ((b & a) | (h & (b | a)));
+			//
+			t1 = f + (ROTR32(c, 6) ^ ROTR32(c, 11) ^ ROTR32(c, 25)) + (e ^ (c & (d ^ e))) + 0x84c87814U + w[58];
+			b += t1;
+			f = t1 + (ROTR32(g, 2) ^ ROTR32(g, 13) ^ ROTR32(g, 22)) + ((a & h) | (g & (a | h)));
+			//
+			t1 = e + (ROTR32(b, 6) ^ ROTR32(b, 11) ^ ROTR32(b, 25)) + (d ^ (b & (c ^ d))) + 0x8cc70208U + w[59];
+			a += t1;
+			e = t1 + (ROTR32(f, 2) ^ ROTR32(f, 13) ^ ROTR32(f, 22)) + ((h & g) | (f & (h | g)));
+			//
+			t1 = d + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c ^ (a & (b ^ c))) + 0x90befffaU + w[60];
+			h += t1;
+			d = t1 + (ROTR32(e, 2) ^ ROTR32(e, 13) ^ ROTR32(e, 22)) + ((g & f) | (e & (g | f)));
+			//
+			t1 = c + (ROTR32(h, 6) ^ ROTR32(h, 11) ^ ROTR32(h, 25)) + (b ^ (h & (a ^ b))) + 0xa4506cebU + w[61];
+			g += t1;
+			c = t1 + (ROTR32(d, 2) ^ ROTR32(d, 13) ^ ROTR32(d, 22)) + ((f & e) | (d & (f | e)));
+			//
+			t1 = b + (ROTR32(g, 6) ^ ROTR32(g, 11) ^ ROTR32(g, 25)) + (a ^ (g & (h ^ a))) + 0xbef9a3f7U + w[46] + w[55] + (ROTR32(w[47], 7) ^ ROTR32(w[47], 18) ^ (w[47] >> 3)) + (ROTR32(w[60], 17) ^ ROTR32(w[60], 19) ^ (w[60] >> 10));
+			f += t1;
+			b = t1 + (ROTR32(c, 2) ^ ROTR32(c, 13) ^ ROTR32(c, 22)) + ((e & d) | (c & (e | d)));
+			//
+			t1 = a + (ROTR32(f, 6) ^ ROTR32(f, 11) ^ ROTR32(f, 25)) + (h ^ (f & (g ^ h))) + 0xc67178f2U + w[47] + w[56] + (ROTR32(w[48], 7) ^ ROTR32(w[48], 18) ^ (w[48] >> 3)) + (ROTR32(w[61], 17) ^ ROTR32(w[61], 19) ^ (w[61] >> 10));
+			e += t1;
+			a = t1 + (ROTR32(b, 2) ^ ROTR32(b, 13) ^ ROTR32(b, 22)) + ((d & c) | (b & (d | c)));
+			//
+			w[0] = a + ms0; w[1] = b + ms1; w[2] = c + ms2; w[3] = d + ms3;
+			w[4] = e + ms4; w[5] = f + ms5; w[6] = g + ms6; w[7] = h + ms7;
+			// hash the hash ***************************************************************
+			w[16] = w[0] + (ROTR32(w[1], 7) ^ ROTR32(w[1], 18) ^ (w[1] >> 3));
+			w[17] = w[1] + (ROTR32(w[2], 7) ^ ROTR32(w[2], 18) ^ (w[2] >> 3)) + (ROTR32(0x100, 17) ^ ROTR32(0x100, 19) ^ (0x100 >> 10));
+			w[18] = w[2] + (ROTR32(w[3], 7) ^ ROTR32(w[3], 18) ^ (w[3] >> 3)) + (ROTR32(w[16], 17) ^ ROTR32(w[16], 19) ^ (w[16] >> 10));
+			w[19] = w[3] + (ROTR32(w[4], 7) ^ ROTR32(w[4], 18) ^ (w[4] >> 3)) + (ROTR32(w[17], 17) ^ ROTR32(w[17], 19) ^ (w[17] >> 10));
+			w[20] = w[4] + (ROTR32(w[5], 7) ^ ROTR32(w[5], 18) ^ (w[5] >> 3)) + (ROTR32(w[18], 17) ^ ROTR32(w[18], 19) ^ (w[18] >> 10));
+			w[21] = w[5] + (ROTR32(w[6], 7) ^ ROTR32(w[6], 18) ^ (w[6] >> 3)) + (ROTR32(w[19], 17) ^ ROTR32(w[19], 19) ^ (w[19] >> 10));
+			w[22] = w[6] + 0x100 + (ROTR32(w[7], 7) ^ ROTR32(w[7], 18) ^ (w[7] >> 3)) + (ROTR32(w[20], 17) ^ ROTR32(w[20], 19) ^ (w[20] >> 10));
+			w[23] = w[7] + w[16] + 0x11002000U + (ROTR32(w[21], 17) ^ ROTR32(w[21], 19) ^ (w[21] >> 10));
+			w[24] = 0x80000000U + w[17] + (ROTR32(w[22], 17) ^ ROTR32(w[22], 19) ^ (w[22] >> 10));
+			w[25] = w[18] + (ROTR32(w[23], 17) ^ ROTR32(w[23], 19) ^ (w[23] >> 10));
+			w[26] = w[19] + (ROTR32(w[24], 17) ^ ROTR32(w[24], 19) ^ (w[24] >> 10));
+			w[27] = w[20] + (ROTR32(w[25], 17) ^ ROTR32(w[25], 19) ^ (w[25] >> 10));
+			w[28] = w[21] + (ROTR32(w[26], 17) ^ ROTR32(w[26], 19) ^ (w[26] >> 10));
+			w[29] = w[22] + (ROTR32(w[27], 17) ^ ROTR32(w[27], 19) ^ (w[27] >> 10));
+			w[30] = w[23] + (ROTR32(0x100, 7) ^ ROTR32(0x100, 18) ^ (0x100 >> 3)) + (ROTR32(w[28], 17) ^ ROTR32(w[28], 19) ^ (w[28] >> 10));
+			w[31] = 0x100 + w[24] + (ROTR32(w[16], 7) ^ ROTR32(w[16], 18) ^ (w[16] >> 3)) + (ROTR32(w[29], 17) ^ ROTR32(w[29], 19) ^ (w[29] >> 10));
+#pragma unroll
+			for (int i = 32; i < 59; ++i)
+				w[i] = w[i - 16] + w[i - 7] + (ROTR32(w[i - 15], 7) ^ ROTR32(w[i - 15], 18) ^ (w[i - 15] >> 3)) + (ROTR32(w[i - 2], 17) ^ ROTR32(w[i - 2], 19) ^ (w[i - 2] >> 10));
+
+			d = 0x98c7e2a2U + w[0];
+			h = 0xfc08884dU + w[0];
+			//
+			t1 = (ROTR32(d, 6) ^ ROTR32(d, 11) ^ ROTR32(d, 25)) + (0x9b05688cU ^ (d & 0xca0b3af3)) + 0x90bb1e3cU + w[1];
+			c = 0x3c6ef372U + t1;
+			g = t1 + (ROTR32(h, 2) ^ ROTR32(h, 13) ^ ROTR32(h, 22)) + (0x2A01A605 | (h & 0xfb6feee7));
+			//
+			t1 = (ROTR32(c, 6) ^ ROTR32(c, 11) ^ ROTR32(c, 25)) + (0x510e527fU ^ (c & (d ^ 0x510e527fU))) + 0x50C6645BU + w[2];
+			b = 0xbb67ae85U + t1;
+			f = t1 + (ROTR32(g, 2) ^ ROTR32(g, 13) ^ ROTR32(g, 22)) + ((0x6a09e667U & h) | (g & (0x6a09e667U | h)));
+			//
+			t1 = (ROTR32(b, 6) ^ ROTR32(b, 11) ^ ROTR32(b, 25)) + (d ^ (b & (c ^ d))) + 0x3AC42E24U + w[3];
+			a = 0x6a09e667U + t1;
+			e = t1 + (ROTR32(f, 2) ^ ROTR32(f, 13) ^ ROTR32(f, 22)) + ((h & g) | (f & (h | g)));
+			//
+			t1 = d + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c ^ (a & (b ^ c))) + 0x3956c25bU + w[4];
+			h += t1;
+			d = t1 + (ROTR32(e, 2) ^ ROTR32(e, 13) ^ ROTR32(e, 22)) + ((g & f) | (e & (g | f)));
+			//
+			t1 = c + (ROTR32(h, 6) ^ ROTR32(h, 11) ^ ROTR32(h, 25)) + (b ^ (h & (a ^ b))) + 0x59f111f1U + w[5];
+			g += t1;
+			c = t1 + (ROTR32(d, 2) ^ ROTR32(d, 13) ^ ROTR32(d, 22)) + ((f & e) | (d & (f | e)));
+			//
+			t1 = b + (ROTR32(g, 6) ^ ROTR32(g, 11) ^ ROTR32(g, 25)) + (a ^ (g & (h ^ a))) + 0x923f82a4U + w[6];
+			f += t1;
+			b = t1 + (ROTR32(c, 2) ^ ROTR32(c, 13) ^ ROTR32(c, 22)) + ((e & d) | (c & (e | d)));
+			//
+			t1 = a + (ROTR32(f, 6) ^ ROTR32(f, 11) ^ ROTR32(f, 25)) + (h ^ (f & (g ^ h))) + 0xab1c5ed5U + w[7];
+			e += t1;
+			a = t1 + (ROTR32(b, 2) ^ ROTR32(b, 13) ^ ROTR32(b, 22)) + ((d & c) | (b & (d | c)));
+			//
+			t1 = h + (ROTR32(e, 6) ^ ROTR32(e, 11) ^ ROTR32(e, 25)) + (g ^ (e & (f ^ g))) + 0x5807aa98U;
+			d += t1;
+			h = t1 + (ROTR32(a, 2) ^ ROTR32(a, 13) ^ ROTR32(a, 22)) + ((c & b) | (a & (c | b)));
+			//
+			t1 = g + (ROTR32(d, 6) ^ ROTR32(d, 11) ^ ROTR32(d, 25)) + (f ^ (d & (e ^ f))) + 0x12835b01U;
+			c += t1;
+			g = t1 + (ROTR32(h, 2) ^ ROTR32(h, 13) ^ ROTR32(h, 22)) + ((b & a) | (h & (b | a)));
+			//
+			t1 = f + (ROTR32(c, 6) ^ ROTR32(c, 11) ^ ROTR32(c, 25)) + (e ^ (c & (d ^ e))) + 0x243185beU;
+			b += t1;
+			f = t1 + (ROTR32(g, 2) ^ ROTR32(g, 13) ^ ROTR32(g, 22)) + ((a & h) | (g & (a | h)));
+			//
+			t1 = e + (ROTR32(b, 6) ^ ROTR32(b, 11) ^ ROTR32(b, 25)) + (d ^ (b & (c ^ d))) + 0x550c7dc3U;
+			a += t1;
+			e = t1 + (ROTR32(f, 2) ^ ROTR32(f, 13) ^ ROTR32(f, 22)) + ((h & g) | (f & (h | g)));
+			//
+			t1 = d + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c ^ (a & (b ^ c))) + 0x72be5d74U;
+			h += t1;
+			d = t1 + (ROTR32(e, 2) ^ ROTR32(e, 13) ^ ROTR32(e, 22)) + ((g & f) | (e & (g | f)));
+			//
+			t1 = c + (ROTR32(h, 6) ^ ROTR32(h, 11) ^ ROTR32(h, 25)) + (b ^ (h & (a ^ b))) + 0x80deb1feU;
+			g += t1;
+			c = t1 + (ROTR32(d, 2) ^ ROTR32(d, 13) ^ ROTR32(d, 22)) + ((f & e) | (d & (f | e)));
+			//
+			t1 = b + (ROTR32(g, 6) ^ ROTR32(g, 11) ^ ROTR32(g, 25)) + (a ^ (g & (h ^ a))) + 0x9bdc06a7U;
+			f += t1;
+			b = t1 + (ROTR32(c, 2) ^ ROTR32(c, 13) ^ ROTR32(c, 22)) + ((e & d) | (c & (e | d)));
+			//
+			t1 = a + (ROTR32(f, 6) ^ ROTR32(f, 11) ^ ROTR32(f, 25)) + (h ^ (f & (g ^ h))) + 0xc19bf274U;
+			e += t1;
+			a = t1 + (ROTR32(b, 2) ^ ROTR32(b, 13) ^ ROTR32(b, 22)) + ((d & c) | (b & (d | c)));
+			//
+			t1 = h + (ROTR32(e, 6) ^ ROTR32(e, 11) ^ ROTR32(e, 25)) + (g ^ (e & (f ^ g))) + 0xe49b69c1U + w[16];
+			d += t1;
+			h = t1 + (ROTR32(a, 2) ^ ROTR32(a, 13) ^ ROTR32(a, 22)) + ((c & b) | (a & (c | b)));
+			//
+			t1 = g + (ROTR32(d, 6) ^ ROTR32(d, 11) ^ ROTR32(d, 25)) + (f ^ (d & (e ^ f))) + 0xefbe4786U + w[17];
+			c += t1;
+			g = t1 + (ROTR32(h, 2) ^ ROTR32(h, 13) ^ ROTR32(h, 22)) + ((b & a) | (h & (b | a)));
+			//
+			t1 = f + (ROTR32(c, 6) ^ ROTR32(c, 11) ^ ROTR32(c, 25)) + (e ^ (c & (d ^ e))) + 0x0fc19dc6U + w[18];
+			b += t1;
+			f = t1 + (ROTR32(g, 2) ^ ROTR32(g, 13) ^ ROTR32(g, 22)) + ((a & h) | (g & (a | h)));
+			//
+			t1 = e + (ROTR32(b, 6) ^ ROTR32(b, 11) ^ ROTR32(b, 25)) + (d ^ (b & (c ^ d))) + 0x240ca1ccU + w[19];
+			a += t1;
+			e = t1 + (ROTR32(f, 2) ^ ROTR32(f, 13) ^ ROTR32(f, 22)) + ((h & g) | (f & (h | g)));
+			//
+			t1 = d + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c ^ (a & (b ^ c))) + 0x2de92c6fU + w[20];
+			h += t1;
+			d = t1 + (ROTR32(e, 2) ^ ROTR32(e, 13) ^ ROTR32(e, 22)) + ((g & f) | (e & (g | f)));
+			//
+			t1 = c + (ROTR32(h, 6) ^ ROTR32(h, 11) ^ ROTR32(h, 25)) + (b ^ (h & (a ^ b))) + 0x4a7484aaU + w[21];
+			g += t1;
+			c = t1 + (ROTR32(d, 2) ^ ROTR32(d, 13) ^ ROTR32(d, 22)) + ((f & e) | (d & (f | e)));
+			//
+			t1 = b + (ROTR32(g, 6) ^ ROTR32(g, 11) ^ ROTR32(g, 25)) + (a ^ (g & (h ^ a))) + 0x5cb0a9dcU + w[22];
+			f += t1;
+			b = t1 + (ROTR32(c, 2) ^ ROTR32(c, 13) ^ ROTR32(c, 22)) + ((e & d) | (c & (e | d)));
+			//
+			t1 = a + (ROTR32(f, 6) ^ ROTR32(f, 11) ^ ROTR32(f, 25)) + (h ^ (f & (g ^ h))) + 0x76f988daU + w[23];
+			e += t1;
+			a = t1 + (ROTR32(b, 2) ^ ROTR32(b, 13) ^ ROTR32(b, 22)) + ((d & c) | (b & (d | c)));
+			//
+			t1 = h + (ROTR32(e, 6) ^ ROTR32(e, 11) ^ ROTR32(e, 25)) + (g ^ (e & (f ^ g))) + 0x983e5152U + w[24];
+			d += t1;
+			h = t1 + (ROTR32(a, 2) ^ ROTR32(a, 13) ^ ROTR32(a, 22)) + ((c & b) | (a & (c | b)));
+			//
+			t1 = g + (ROTR32(d, 6) ^ ROTR32(d, 11) ^ ROTR32(d, 25)) + (f ^ (d & (e ^ f))) + 0xa831c66dU + w[25];
+			c += t1;
+			g = t1 + (ROTR32(h, 2) ^ ROTR32(h, 13) ^ ROTR32(h, 22)) + ((b & a) | (h & (b | a)));
+			//
+			t1 = f + (ROTR32(c, 6) ^ ROTR32(c, 11) ^ ROTR32(c, 25)) + (e ^ (c & (d ^ e))) + 0xb00327c8U + w[26];
+			b += t1;
+			f = t1 + (ROTR32(g, 2) ^ ROTR32(g, 13) ^ ROTR32(g, 22)) + ((a & h) | (g & (a | h)));
+			//
+			t1 = e + (ROTR32(b, 6) ^ ROTR32(b, 11) ^ ROTR32(b, 25)) + (d ^ (b & (c ^ d))) + 0xbf597fc7U + w[27];
+			a += t1;
+			e = t1 + (ROTR32(f, 2) ^ ROTR32(f, 13) ^ ROTR32(f, 22)) + ((h & g) | (f & (h | g)));
+			//
+			t1 = d + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c ^ (a & (b ^ c))) + 0xc6e00bf3U + w[28];
+			h += t1;
+			d = t1 + (ROTR32(e, 2) ^ ROTR32(e, 13) ^ ROTR32(e, 22)) + ((g & f) | (e & (g | f)));
+			//
+			t1 = c + (ROTR32(h, 6) ^ ROTR32(h, 11) ^ ROTR32(h, 25)) + (b ^ (h & (a ^ b))) + 0xd5a79147U + w[29];
+			g += t1;
+			c = t1 + (ROTR32(d, 2) ^ ROTR32(d, 13) ^ ROTR32(d, 22)) + ((f & e) | (d & (f | e)));
+			//
+			t1 = b + (ROTR32(g, 6) ^ ROTR32(g, 11) ^ ROTR32(g, 25)) + (a ^ (g & (h ^ a))) + 0x06ca6351U + w[30];
+			f += t1;
+			b = t1 + (ROTR32(c, 2) ^ ROTR32(c, 13) ^ ROTR32(c, 22)) + ((e & d) | (c & (e | d)));
+			//
+			t1 = a + (ROTR32(f, 6) ^ ROTR32(f, 11) ^ ROTR32(f, 25)) + (h ^ (f & (g ^ h))) + 0x14292967U + w[31];
+			e += t1;
+			a = t1 + (ROTR32(b, 2) ^ ROTR32(b, 13) ^ ROTR32(b, 22)) + ((d & c) | (b & (d | c)));
+			//
+			t1 = h + (ROTR32(e, 6) ^ ROTR32(e, 11) ^ ROTR32(e, 25)) + (g ^ (e & (f ^ g))) + 0x27b70a85U + w[32];
+			d += t1;
+			h = t1 + (ROTR32(a, 2) ^ ROTR32(a, 13) ^ ROTR32(a, 22)) + ((c & b) | (a & (c | b)));
+			//
+			t1 = g + (ROTR32(d, 6) ^ ROTR32(d, 11) ^ ROTR32(d, 25)) + (f ^ (d & (e ^ f))) + 0x2e1b2138U + w[33];
+			c += t1;
+			g = t1 + (ROTR32(h, 2) ^ ROTR32(h, 13) ^ ROTR32(h, 22)) + ((b & a) | (h & (b | a)));
+			//
+			t1 = f + (ROTR32(c, 6) ^ ROTR32(c, 11) ^ ROTR32(c, 25)) + (e ^ (c & (d ^ e))) + 0x4d2c6dfcU + w[34];
+			b += t1;
+			f = t1 + (ROTR32(g, 2) ^ ROTR32(g, 13) ^ ROTR32(g, 22)) + ((a & h) | (g & (a | h)));
+			//
+			t1 = e + (ROTR32(b, 6) ^ ROTR32(b, 11) ^ ROTR32(b, 25)) + (d ^ (b & (c ^ d))) + 0x53380d13U + w[35];
+			a += t1;
+			e = t1 + (ROTR32(f, 2) ^ ROTR32(f, 13) ^ ROTR32(f, 22)) + ((h & g) | (f & (h | g)));
+			//
+			t1 = d + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c ^ (a & (b ^ c))) + 0x650a7354U + w[36];
+			h += t1;
+			d = t1 + (ROTR32(e, 2) ^ ROTR32(e, 13) ^ ROTR32(e, 22)) + ((g & f) | (e & (g | f)));
+			//
+			t1 = c + (ROTR32(h, 6) ^ ROTR32(h, 11) ^ ROTR32(h, 25)) + (b ^ (h & (a ^ b))) + 0x766a0abbU + w[37];
+			g += t1;
+			c = t1 + (ROTR32(d, 2) ^ ROTR32(d, 13) ^ ROTR32(d, 22)) + ((f & e) | (d & (f | e)));
+			//
+			t1 = b + (ROTR32(g, 6) ^ ROTR32(g, 11) ^ ROTR32(g, 25)) + (a ^ (g & (h ^ a))) + 0x81c2c92eU + w[38];
+			f += t1;
+			b = t1 + (ROTR32(c, 2) ^ ROTR32(c, 13) ^ ROTR32(c, 22)) + ((e & d) | (c & (e | d)));
+			//
+			t1 = a + (ROTR32(f, 6) ^ ROTR32(f, 11) ^ ROTR32(f, 25)) + (h ^ (f & (g ^ h))) + 0x92722c85U + w[39];
+			e += t1;
+			a = t1 + (ROTR32(b, 2) ^ ROTR32(b, 13) ^ ROTR32(b, 22)) + ((d & c) | (b & (d | c)));
+			//
+			t1 = h + (ROTR32(e, 6) ^ ROTR32(e, 11) ^ ROTR32(e, 25)) + (g ^ (e & (f ^ g))) + 0xa2bfe8a1U + w[40];
+			d += t1;
+			h = t1 + (ROTR32(a, 2) ^ ROTR32(a, 13) ^ ROTR32(a, 22)) + ((c & b) | (a & (c | b)));
+			//
+			t1 = g + (ROTR32(d, 6) ^ ROTR32(d, 11) ^ ROTR32(d, 25)) + (f ^ (d & (e ^ f))) + 0xa81a664bU + w[41];
+			c += t1;
+			g = t1 + (ROTR32(h, 2) ^ ROTR32(h, 13) ^ ROTR32(h, 22)) + ((b & a) | (h & (b | a)));
+			//
+			t1 = f + (ROTR32(c, 6) ^ ROTR32(c, 11) ^ ROTR32(c, 25)) + (e ^ (c & (d ^ e))) + 0xc24b8b70U + w[42];
+			b += t1;
+			f = t1 + (ROTR32(g, 2) ^ ROTR32(g, 13) ^ ROTR32(g, 22)) + ((a & h) | (g & (a | h)));
+			//
+			t1 = e + (ROTR32(b, 6) ^ ROTR32(b, 11) ^ ROTR32(b, 25)) + (d ^ (b & (c ^ d))) + 0xc76c51a3U + w[43];
+			a += t1;
+			e = t1 + (ROTR32(f, 2) ^ ROTR32(f, 13) ^ ROTR32(f, 22)) + ((h & g) | (f & (h | g)));
+			//
+			t1 = d + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c ^ (a & (b ^ c))) + 0xd192e819U + w[44];
+			h += t1;
+			d = t1 + (ROTR32(e, 2) ^ ROTR32(e, 13) ^ ROTR32(e, 22)) + ((g & f) | (e & (g | f)));
+			//
+			t1 = c + (ROTR32(h, 6) ^ ROTR32(h, 11) ^ ROTR32(h, 25)) + (b ^ (h & (a ^ b))) + 0xd6990624U + w[45];
+			g += t1;
+			c = t1 + (ROTR32(d, 2) ^ ROTR32(d, 13) ^ ROTR32(d, 22)) + ((f & e) | (d & (f | e)));
+			//
+			t1 = b + (ROTR32(g, 6) ^ ROTR32(g, 11) ^ ROTR32(g, 25)) + (a ^ (g & (h ^ a))) + 0xf40e3585U + w[46];
+			f += t1;
+			b = t1 + (ROTR32(c, 2) ^ ROTR32(c, 13) ^ ROTR32(c, 22)) + ((e & d) | (c & (e | d)));
+			//
+			t1 = a + (ROTR32(f, 6) ^ ROTR32(f, 11) ^ ROTR32(f, 25)) + (h ^ (f & (g ^ h))) + 0x106aa070U + w[47];
+			e += t1;
+			a = t1 + (ROTR32(b, 2) ^ ROTR32(b, 13) ^ ROTR32(b, 22)) + ((d & c) | (b & (d | c)));
+			//
+			t1 = h + (ROTR32(e, 6) ^ ROTR32(e, 11) ^ ROTR32(e, 25)) + (g ^ (e & (f ^ g))) + 0x19a4c116U + w[48];
+			d += t1;
+			h = t1 + (ROTR32(a, 2) ^ ROTR32(a, 13) ^ ROTR32(a, 22)) + ((c & b) | (a & (c | b)));
+			//
+			t1 = g + (ROTR32(d, 6) ^ ROTR32(d, 11) ^ ROTR32(d, 25)) + (f ^ (d & (e ^ f))) + 0x1e376c08U + w[49];
+			c += t1;
+			g = t1 + (ROTR32(h, 2) ^ ROTR32(h, 13) ^ ROTR32(h, 22)) + ((b & a) | (h & (b | a)));
+			//
+			t1 = f + (ROTR32(c, 6) ^ ROTR32(c, 11) ^ ROTR32(c, 25)) + (e ^ (c & (d ^ e))) + 0x2748774cU + w[50];
+			b += t1;
+			f = t1 + (ROTR32(g, 2) ^ ROTR32(g, 13) ^ ROTR32(g, 22)) + ((a & h) | (g & (a | h)));
+			//
+			t1 = e + (ROTR32(b, 6) ^ ROTR32(b, 11) ^ ROTR32(b, 25)) + (d ^ (b & (c ^ d))) + 0x34b0bcb5U + w[51];
+			a += t1;
+			e = t1 + (ROTR32(f, 2) ^ ROTR32(f, 13) ^ ROTR32(f, 22)) + ((h & g) | (f & (h | g)));
+			//
+			t1 = d + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c ^ (a & (b ^ c))) + 0x391c0cb3U + w[52];
+			h += t1;
+			d = t1 + (ROTR32(e, 2) ^ ROTR32(e, 13) ^ ROTR32(e, 22)) + ((g & f) | (e & (g | f)));
+			//
+			t1 = c + (ROTR32(h, 6) ^ ROTR32(h, 11) ^ ROTR32(h, 25)) + (b ^ (h & (a ^ b))) + 0x4ed8aa4aU + w[53];
+			g += t1;
+			c = t1 + (ROTR32(d, 2) ^ ROTR32(d, 13) ^ ROTR32(d, 22)) + ((f & e) | (d & (f | e)));
+			//
+			t1 = b + (ROTR32(g, 6) ^ ROTR32(g, 11) ^ ROTR32(g, 25)) + (a ^ (g & (h ^ a))) + 0x5b9cca4fU + w[54];
+			f += t1;
+			b = t1 + (ROTR32(c, 2) ^ ROTR32(c, 13) ^ ROTR32(c, 22)) + ((e & d) | (c & (e | d)));
+			//
+			t1 = a + (ROTR32(f, 6) ^ ROTR32(f, 11) ^ ROTR32(f, 25)) + (h ^ (f & (g ^ h))) + 0x682e6ff3U + w[55];
+			e += t1;
+			a = t1 + (ROTR32(b, 2) ^ ROTR32(b, 13) ^ ROTR32(b, 22)) + ((d & c) | (b & (d | c)));
+			//
+			t1 = h + (ROTR32(e, 6) ^ ROTR32(e, 11) ^ ROTR32(e, 25)) + (g ^ (e & (f ^ g))) + 0x748f82eeU + w[56];
+			d += t1;
+			h = t1 + (ROTR32(a, 2) ^ ROTR32(a, 13) ^ ROTR32(a, 22)) + ((c & b) | (a & (c | b)));
+			//
+			c += g + (ROTR32(d, 6) ^ ROTR32(d, 11) ^ ROTR32(d, 25)) + (f ^ (d & (e ^ f))) + 0x78a5636fU + w[57];
+			//
+			b += f + (ROTR32(c, 6) ^ ROTR32(c, 11) ^ ROTR32(c, 25)) + (e ^ (c & (d ^ e))) + 0x84c87814U + w[58];
+			//
+			a += e + (ROTR32(b, 6) ^ ROTR32(b, 11) ^ ROTR32(b, 25)) + (d ^ (b & (c ^ d))) + 0x8cc70208U + w[43] + w[52] + (ROTR32(w[44], 7) ^ ROTR32(w[44], 18) ^ (w[44] >> 3)) + (ROTR32(w[57], 17) ^ ROTR32(w[57], 19) ^ (w[57] >> 10));
+			//
+			h += d + (ROTR32(a, 6) ^ ROTR32(a, 11) ^ ROTR32(a, 25)) + (c ^ (a & (b ^ c))) + 0x90befffaU + w[44] + w[53] + (ROTR32(w[45], 7) ^ ROTR32(w[45], 18) ^ (w[45] >> 3)) + (ROTR32(w[58], 17) ^ ROTR32(w[58], 19) ^ (w[58] >> 10));
+			//
+			if (h == 0xa41f32e7)
+			{
+				uint32_t tmp = atomicCAS(result, 0xffffffff, nonce);
+				if (tmp != 0xffffffff)
+					result[1] = nonce;
+			}
+		} // nonce loop
+	} // if thread<threads
 }
 
 __host__
-void sha256d_hash_80(int thr_id, uint32_t threads, uint32_t startNonce, uint32_t *resNonces)
+void sha256d_hash_80(int thr_id, uint32_t threads, uint32_t startNonce, const uint32_t* const ms, uint32_t merkle, uint32_t time, uint32_t compacttarget, uint32_t* resNonces)
 {
-	const uint32_t threadsperblock = 256;
+	uint32_t b2, c2, d2, f2, g2, h2, t1, w16, w17, t1c, t2c, w16rot, w17rot;
 
-	dim3 grid(threads/threadsperblock);
-	dim3 block(threadsperblock);
+	t1 = ms[7] + (ROTR32(ms[4], 6) ^ ROTR32(ms[4], 11) ^ ROTR32(ms[4], 25)) + (ms[6] ^ (ms[4] & (ms[5] ^ ms[6]))) + 0x428a2f98U + merkle;
+	d2 = ms[3] + t1;
+	h2 = t1 + (ROTR32(ms[0], 2) ^ ROTR32(ms[0], 13) ^ ROTR32(ms[0], 22)) + ((ms[2] & ms[1]) | (ms[0] & (ms[2] | ms[1])));
+	//
+	t1 = ms[6] + (ROTR32(d2, 6) ^ ROTR32(d2, 11) ^ ROTR32(d2, 25)) + (ms[5] ^ (d2 & (ms[4] ^ ms[5]))) + 0x71374491U + time;
+	c2 = ms[2] + t1;
+	g2 = t1 + (ROTR32(h2, 2) ^ ROTR32(h2, 13) ^ ROTR32(h2, 22)) + ((ms[1] & ms[0]) | (h2 & (ms[1] | ms[0])));
+	//
+	t1 = ms[5] + (ROTR32(c2, 6) ^ ROTR32(c2, 11) ^ ROTR32(c2, 25)) + (ms[4] ^ (c2 & (d2 ^ ms[4]))) + 0xb5c0fbcfU + compacttarget;
+	b2 = ms[1] + t1;
+	f2 = t1 + (ROTR32(g2, 2) ^ ROTR32(g2, 13) ^ ROTR32(g2, 22)) + ((ms[0] & h2) | (g2 & (ms[0] | h2)));
+
+	w16 = merkle + (ROTR32(time, 7) ^ ROTR32(time, 18) ^ (time >> 3));
+	w16rot = (ROTR32(w16, 17) ^ ROTR32(w16, 19) ^ (w16 >> 10)) + compacttarget;
+	w17 = time + (ROTR32(compacttarget, 7) ^ ROTR32(compacttarget, 18) ^ (compacttarget >> 3)) + 0x01100000U;
+	w17rot = (ROTR32(w17, 17) ^ ROTR32(w17, 19) ^ (w17 >> 10)) + 0x11002000U;
+	t2c = (ROTR32(f2, 2) ^ ROTR32(f2, 13) ^ ROTR32(f2, 22)) + ((h2 & g2) | (f2 & (h2 | g2)));
+	t1c = ms[4] + (ROTR32(b2, 6) ^ ROTR32(b2, 11) ^ ROTR32(b2, 25)) + (d2 ^ (b2 & (c2 ^ d2))) + 0xe9b5dba5U;
+
+	dim3 grid((threads + TPB * NONCES_PER_THREAD - 1) / TPB / NONCES_PER_THREAD);
+	dim3 block(TPB);
 
 	CUDA_SAFE_CALL(cudaMemset(d_resNonces[thr_id], 0xFF, 2 * sizeof(uint32_t)));
 	cudaThreadSynchronize();
-	sha256d_gpu_hash_shared <<<grid, block>>> (threads, startNonce, d_resNonces[thr_id]);
+	sha256d_gpu_hash << <grid, block >> > (threads, startNonce, d_resNonces[thr_id], t1c, t2c, w16, w16rot, w17, w17rot, b2, c2, d2, f2, g2, h2, ms[0], ms[1], ms[2], ms[3], ms[4], ms[5], ms[6], ms[7], compacttarget);
 	cudaThreadSynchronize();
 
 	CUDA_SAFE_CALL(cudaMemcpy(resNonces, d_resNonces[thr_id], 2 * sizeof(uint32_t), cudaMemcpyDeviceToHost));

@@ -56,7 +56,7 @@
 BOOL WINAPI ConsoleHandler(DWORD);
 #endif
 
-#define PROGRAM_NAME		"ccminer-kudaraidee"
+#define PROGRAM_NAME		"ccminer-tpfuemp"
 #define LP_SCANTIME		60
 #define HEAVYCOIN_BLKHDR_SZ		84
 #define MNR_BLKHDR_SZ 80
@@ -233,6 +233,18 @@ int opt_api_mcast_port = 4068;
 
 bool opt_stratum_stats = false;
 
+bool allow_getwork = true;
+static unsigned char pk_script[25] = { 0 };
+static size_t pk_script_size = 0;
+static char* lp_id;
+bool opt_segwit_mode = false;
+bool opt_eco_mode = false;
+char* yescrypt_key = NULL;
+size_t yescrypt_key_len = 0;
+uint32_t yescrypt_param_N = 0;
+uint32_t yescrypt_param_r = 0;
+uint32_t yescrypt_param_p = 0;
+
 static char const usage[] = "\
 Usage: " PROGRAM_NAME " [OPTIONS]\n\
 Options:\n\
@@ -280,6 +292,7 @@ Options:\n\
 			polytimos	Politimos\n\
 			quark		Quark\n\
 			qubit		Qubit\n\
+			sha256csm	SHA256csm (galleoncoin)\n\
 			sha256d		SHA256d (bitcoin)\n\
 			sha256t		SHA256 x3\n\
 			sha3d		Bsha3, Yilacoin and Kylacoin\n\
@@ -309,6 +322,12 @@ Options:\n\
 			x16s		X16S\n\
 			x21s		X21S\n\
 			wildkeccak	Boolberry\n\
+			yescrypt     Globlboost-Y (BSTY) or any params\n\
+            yescryptr8   BitZeny (ZNY)\n\
+            yescryptr16  Yenten (YTN)\n\
+            yescryptr16v2 PPTP\n\
+            yescryptr24  JagariCoinR\n\
+            yescryptr32  WAVI\n\
 			zr5		ZR5 (ZiftrCoin)\n\
   -d, --devices         Comma separated list of CUDA devices to use.\n\
                         Device IDs start counting from 0! Alternatively takes\n\
@@ -335,6 +354,12 @@ Options:\n\
   -s, --scantime=N      upper bound on time spent scanning current work when\n\
                           long polling is unavailable, in seconds (default: 10)\n\
       --submit-stale    ignore stale jobs checks, may create more rejected shares\n\
+      --eco             use eco mode (Lyra2REv2 only)\n\
+      --segwit          Agree with Segwit (Solo Mining only)\n\
+      --coinbase-addr=ADDR  payout address for solo mining\n\
+      --no-getwork      disable getwork support\n\
+	  --yescrypt-param  set params(N,r,p) for yescrypt\n\
+	  --yescrypt-key    set key for yescrypt\n\
   -n, --ndevs           list cuda devices\n\
   -N, --statsavg        number of samples used to compute hashrate (default: 30)\n\
       --no-gbt          disable getblocktemplate support (height check in solo)\n\
@@ -477,6 +502,12 @@ struct option options[] = {
 	{ "diff-multiplier", 1, NULL, 'm' },
 	{ "diff-factor", 1, NULL, 'f' },
 	{ "diff", 1, NULL, 'f' }, // compat
+	{ "eco", 0, NULL, 1081 },
+	{ "coinbase-addr", 1, NULL, 1016 },
+	{ "no-getwork", 0, NULL, 1010 },
+	{ "segwit", 0, NULL, 1083 },
+	{ "yescrypt-param", 1, NULL, 1084 },
+	{ "yescrypt-key", 1, NULL, 1085 },
 	{ 0, 0, 0, 0 }
 };
 
@@ -964,6 +995,7 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 		case ALGO_BLAKE2S:
 		case ALGO_BMW:
 		case ALGO_BMW512:
+		case ALGO_SHA256CSM:
 		case ALGO_SHA256D:
 		case ALGO_SHA256T:
 		case ALGO_VANILLA:
@@ -1744,6 +1776,12 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_XAYA:
 		case ALGO_SCRYPT:
 		case ALGO_SCRYPT_JANE:
+		case ALGO_YESCRYPT:
+		case ALGO_YESCRYPTR8:
+		case ALGO_YESCRYPTR16:
+		case ALGO_YESCRYPTR16V2:
+		case ALGO_YESCRYPTR24:
+		case ALGO_YESCRYPTR32:
 			work_set_target(work, sctx->job.diff / (65536.0 * opt_difficulty));
 			break;
 		case ALGO_DMD_GR:
@@ -2274,6 +2312,7 @@ static void *miner_thread(void *userdata)
 			case ALGO_BMW:
 			case ALGO_BMW512:
 			case ALGO_DECRED:
+			case ALGO_SHA256CSM:
 			case ALGO_SHA256D:
 			case ALGO_SHA256T:
 			//case ALGO_WHIRLPOOLX:
@@ -2324,6 +2363,15 @@ static void *miner_thread(void *userdata)
 			case ALGO_SCRYPT:
 			case ALGO_VELTOR:
 				minmax = 0x80000;
+				break;
+			case ALGO_YESCRYPT:
+			case ALGO_YESCRYPTR8:
+			case ALGO_YESCRYPTR16:
+			case ALGO_YESCRYPTR16V2:
+			case ALGO_YESCRYPTR24:
+			case ALGO_YESCRYPTR32:
+			case ALGO_LYRA2Z330:
+				minmax = 0x8000;
 				break;
 			case ALGO_CRYPTOLIGHT:
 			case ALGO_CRYPTONIGHT:
@@ -2515,6 +2563,9 @@ static void *miner_thread(void *userdata)
 		case ALGO_SKUNK:
 			rc = scanhash_skunk(thr_id, &work, max_nonce, &hashes_done);
 			break;
+		case ALGO_SHA256CSM:
+			rc = scanhash_sha256csm(thr_id, &work, max_nonce, &hashes_done);
+			break;
 		case ALGO_SHA256D:
 			rc = scanhash_sha256d(thr_id, &work, max_nonce, &hashes_done);
 			break;
@@ -2597,6 +2648,30 @@ static void *miner_thread(void *userdata)
 		case ALGO_ZR5:
 			rc = scanhash_zr5(thr_id, &work, max_nonce, &hashes_done);
 			break;
+		case ALGO_YESCRYPT:
+			rc = scanhash_yescrypt(thr_id, &work, max_nonce, &hashes_done);
+			break;
+
+		case ALGO_YESCRYPTR8:
+			rc = scanhash_yescryptr8(thr_id, &work, max_nonce, &hashes_done);
+			break;
+
+		case ALGO_YESCRYPTR16:
+			rc = scanhash_yescryptr16(thr_id, &work, max_nonce, &hashes_done);
+			break;
+
+		case ALGO_YESCRYPTR16V2:
+			rc = scanhash_yescryptr16v2(thr_id, &work, max_nonce, &hashes_done);
+			break;
+
+		case ALGO_YESCRYPTR24:
+			rc = scanhash_yescryptr24(thr_id, &work, max_nonce, &hashes_done);
+			break;
+
+		case ALGO_YESCRYPTR32:
+			rc = scanhash_yescryptr32(thr_id, &work, max_nonce, &hashes_done);
+			break;
+
 
 		default:
 			/* should never happen */
@@ -3961,7 +4036,7 @@ int main(int argc, char *argv[])
 	// get opt_quiet early
 	parse_single_opt('q', argc, argv);
 
-	printf("*** ccminer-kudaraidee " PACKAGE_VERSION " for nVidia GPUs by kudaraidee@github ***\n");
+	printf("*** ccminer-tpfuemp " PACKAGE_VERSION " for nVidia GPUs by tpfuemp@github ***\n");
 	if (!opt_quiet) {
 		const char* arch = is_x64() ? "64-bits" : "32-bits";
 #ifdef _MSC_VER
@@ -3972,7 +4047,7 @@ int main(int argc, char *argv[])
 			CUDART_VERSION/1000, (CUDART_VERSION % 1000)/10, arch);
 		printf("  Originally based on Christian Buchner and Christian H. project\n");
 		printf("  Include some kernels from lenis0012, tpruvot, alexis78, djm34, djEzo, tsiv and krnlx.\n\n");
-		printf("DOGE donation address: D6oP3WPygJ4NR26XxfFydUsCiNS4oX9rqb (xiaolin1579)\n\n");
+		printf("DOGE donation address: DNQdyeLu9DtRfsZCFvy1GfJTwjWJoSWHLh (tpfuemp)\n\n");
 	}
 
 	rpc_user = strdup("");
