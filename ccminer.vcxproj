@@ -94,13 +94,6 @@
       <PtxAsOptionV>true</PtxAsOptionV>
       <Keep>true</Keep>
       <CodeGeneration>
-        compute_120,sm_120;
-        compute_101,sm_101;
-        compute_100a,sm_100a;
-        compute_100,sm_100;
-        compute_90a,sm_90a;
-        compute_90,sm_90;
-        compute_89,sm_89;
         compute_87,sm_87;
         compute_86,sm_86;
         compute_80,sm_80;
@@ -143,13 +136,6 @@
       <PtxAsOptionV>true</PtxAsOptionV>
       <Keep>true</Keep>
       <CodeGeneration>
-        compute_120,sm_120;
-        compute_101,sm_101;
-        compute_100a,sm_100a;
-        compute_100,sm_100;
-        compute_90a,sm_90a;
-        compute_90,sm_90;
-        compute_89,sm_89;
         compute_87,sm_87;
         compute_86,sm_86;
         compute_80,sm_80;
@@ -203,13 +189,6 @@
       <PtxAsOptionV>true</PtxAsOptionV>
       <Keep>true</Keep>
       <CodeGeneration>
-        compute_120,sm_120;
-        compute_101,sm_101;
-        compute_100a,sm_100a;
-        compute_100,sm_100;
-        compute_90a,sm_90a;
-        compute_90,sm_90;
-        compute_89,sm_89;
         compute_87,sm_87;
         compute_86,sm_86;
         compute_80,sm_80;
@@ -263,13 +242,6 @@
       <PtxAsOptionV>true</PtxAsOptionV>
       <Keep>true</Keep>
       <CodeGeneration>
-        compute_120,sm_120;
-        compute_101,sm_101;
-        compute_100a,sm_100a;
-        compute_100,sm_100;
-        compute_90a,sm_90a;
-        compute_90,sm_90;
-        compute_89,sm_89;
         compute_87,sm_87;
         compute_86,sm_86;
         compute_80,sm_80;
