@@ -9,6 +9,7 @@
 #define PROTOCOL_VERSION 70001
 #endif
 
+#include <cstdint>
 #include <stdexcept>
 #include <vector>
 
@@ -109,7 +110,11 @@ public:
     CBigNum(unsigned short n)   { init(); setulong(n); }
     CBigNum(unsigned int n)     { init(); setulong(n); }
     CBigNum(unsigned long n)    { init(); setulong(n); }
+    #ifdef _WIN32
+    CBigNum(uint64_t n)         { init(); setuint64(n); }
+    #else
     CBigNum(uint64 n)           { init(); setuint64(n); }
+    #endif
     explicit CBigNum(uint256 n) { init(); setuint256(n); }
 
     explicit CBigNum(const std::vector<unsigned char>& vch)

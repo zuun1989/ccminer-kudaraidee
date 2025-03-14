@@ -7,7 +7,11 @@ extern "C" {
 
 #include <ccminer-config.h>
 
+#ifdef __cplusplus
+#include <cstdbool> // C++ equivalent of stdbool.h
+#else
 #include <stdbool.h>
+#endif
 #include <inttypes.h>
 #include <sys/time.h>
 #include <pthread.h>

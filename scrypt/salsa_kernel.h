@@ -2,7 +2,11 @@
 #define SALSA_KERNEL_H
 
 #include <stdio.h>
+#ifdef __cplusplus
+#include <cstdbool> // C++ equivalent of stdbool.h
+#else
 #include <stdbool.h>
+#endif
 #include <stdlib.h>
 #ifndef __APPLE__
 #include <malloc.h>

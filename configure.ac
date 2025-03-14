@@ -1,4 +1,4 @@
-AC_INIT([ccminer-tpfuemp], [1.0.0], [], [ccminer-tpfuemp], [https://github.com/tpfuemp/ccminer-tpfuemp])
+AC_INIT([ccminer-kudaraidee], [1.2.0], [], [ccminer-kudaraidee], [https://github.com/kudaraidee/ccminer-kudaraidee])
 
 AC_PREREQ([2.59c])
 AC_CANONICAL_SYSTEM

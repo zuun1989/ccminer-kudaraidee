@@ -13,7 +13,11 @@
 
 #include <string.h>
 #include <stdint.h>
+#ifdef __cplusplus
+#include <cstdbool> // C++ equivalent of stdbool.h
+#else
 #include <stdbool.h>
+#endif
 #include <assert.h>
 
 #include "equihash.h"

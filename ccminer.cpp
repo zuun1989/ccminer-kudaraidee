@@ -14,7 +14,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __cplusplus
+#include <cstdbool> // C++ equivalent of stdbool.h
+#else
 #include <stdbool.h>
+#endif
 #include <inttypes.h>
 #include <unistd.h>
 #include <math.h>
@@ -56,7 +60,7 @@
 BOOL WINAPI ConsoleHandler(DWORD);
 #endif
 
-#define PROGRAM_NAME		"ccminer-tpfuemp"
+#define PROGRAM_NAME		"ccminer-kudaraidee"
 #define LP_SCANTIME		60
 #define HEAVYCOIN_BLKHDR_SZ		84
 #define MNR_BLKHDR_SZ 80
@@ -323,11 +327,11 @@ Options:\n\
 			x21s		X21S\n\
 			wildkeccak	Boolberry\n\
 			yescrypt     Globlboost-Y (BSTY) or any params\n\
-            yescryptr8   BitZeny (ZNY)\n\
-            yescryptr16  Yenten (YTN)\n\
-            yescryptr16v2 PPTP\n\
-            yescryptr24  JagariCoinR\n\
-            yescryptr32  WAVI\n\
+			yescryptr8   BitZeny (ZNY)\n\
+			yescryptr16  Yenten (YTN)\n\
+			yescryptr16v2 PPTP\n\
+			yescryptr24  JagariCoinR\n\
+			yescryptr32  WAVI\n\
 			zr5		ZR5 (ZiftrCoin)\n\
   -d, --devices         Comma separated list of CUDA devices to use.\n\
                         Device IDs start counting from 0! Alternatively takes\n\
@@ -4036,7 +4040,7 @@ int main(int argc, char *argv[])
 	// get opt_quiet early
 	parse_single_opt('q', argc, argv);
 
-	printf("*** ccminer-tpfuemp " PACKAGE_VERSION " for nVidia GPUs by tpfuemp@github ***\n");
+	printf("*** ccminer-kudaraidee " PACKAGE_VERSION " for nVidia GPUs by kudaraidee@github ***\n");
 	if (!opt_quiet) {
 		const char* arch = is_x64() ? "64-bits" : "32-bits";
 #ifdef _MSC_VER
@@ -4047,7 +4051,7 @@ int main(int argc, char *argv[])
 			CUDART_VERSION/1000, (CUDART_VERSION % 1000)/10, arch);
 		printf("  Originally based on Christian Buchner and Christian H. project\n");
 		printf("  Include some kernels from lenis0012, tpruvot, alexis78, djm34, djEzo, tsiv and krnlx.\n\n");
-		printf("DOGE donation address: DNQdyeLu9DtRfsZCFvy1GfJTwjWJoSWHLh (tpfuemp)\n\n");
+		printf("DOGE donation address: D5fSxMfZ5tKYSxxQiJPeRoMjYcyHnffBwD (kudaraidee)\n\n");
 	}
 
 	rpc_user = strdup("");

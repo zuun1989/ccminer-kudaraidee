@@ -13,13 +13,20 @@
 #ifdef WIN32
 # define  _WINSOCK_DEPRECATED_NO_WARNINGS
 # include <winsock2.h>
+#include <ws2tcpip.h>
+typedef int socklen_t;
+#pragma comment(lib, "Ws2_32.lib")
 #endif
 
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __cplusplus
+#include <cstdbool> // C++ equivalent of stdbool.h
+#else
 #include <stdbool.h>
+#endif
 #include <inttypes.h>
 #include <unistd.h>
 #include <sys/time.h>

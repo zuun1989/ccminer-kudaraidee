@@ -11,7 +11,11 @@
 #define __launch_bounds__(max_tpb, min_blocks)
 #endif
 
+#ifdef __cplusplus
+#include <cstdbool> // C++ equivalent of stdbool.h
+#else
 #include <stdbool.h>
+#endif
 #include <stdint.h>
 
 #ifndef UINT32_MAX

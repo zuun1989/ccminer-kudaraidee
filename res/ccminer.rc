@@ -77,10 +77,10 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "FileVersion", "1.0.0.0"
+            VALUE "FileVersion", "1.2.0"
             VALUE "LegalCopyright", "Copyright (C) 2022"
-            VALUE "ProductName", "ccminer-tpfuemp"
-            VALUE "ProductVersion", "1.0.0.0"
+            VALUE "ProductName", "ccminer-kudaraidee"
+            VALUE "ProductVersion", "1.2.0"
         END
     END
     BLOCK "VarFileInfo"

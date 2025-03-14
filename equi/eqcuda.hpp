@@ -3,7 +3,11 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#ifdef __cplusplus
+#include <cstdbool> // C++ equivalent of stdbool.h
+#else
 #include <stdbool.h>
+#endif
 #include <stdio.h>
 #include <stdexcept>
 #include <vector>
