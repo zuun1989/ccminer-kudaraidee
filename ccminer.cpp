@@ -257,6 +257,7 @@ Options:\n\
 			0x10		ChainOX\n\
 			allium		Lyra2 blake2s\n\
 			argon2d1000	Zero Dynamics Cash\n\
+			argon2d16000	Alterdot\n\
 			anime		Animecoin\n\
 			heavyhash	oBTC coin\n\
 			bastion		Hefty bastion\n\
@@ -1777,6 +1778,7 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 
 	switch (opt_algo) {
 		case ALGO_ARGON2D1000:
+		case ALGO_ARGON2D16000:
 		case ALGO_HMQ1725:
 		case ALGO_JACKPOT:
 		case ALGO_JHA:
@@ -2367,6 +2369,7 @@ static void *miner_thread(void *userdata)
 			case ALGO_LYRA2Z:
 			case ALGO_ALLIUM:
 			case ALGO_ARGON2D1000:
+			case ALGO_ARGON2D16000:
 			case ALGO_NEOSCRYPT:
 			case ALGO_XAYA:
 			case ALGO_SIB:
@@ -2545,6 +2548,9 @@ static void *miner_thread(void *userdata)
 			break;
 		case ALGO_ARGON2D1000:
 			rc = scanhash_argon2d1000(thr_id, &work, max_nonce, &hashes_done);
+			break;
+		case ALGO_ARGON2D16000:
+			rc = scanhash_argon2d16000(thr_id, &work, max_nonce, &hashes_done);
 			break;
 		case ALGO_ANIME:
 			rc = scanhash_anime(thr_id, &work, max_nonce, &hashes_done);
@@ -3478,8 +3484,8 @@ void parse_arg(int key, char *arg)
 			if (strncasecmp(arg, "http://", 7) &&
 				strncasecmp(arg, "https://", 8) &&
 				strncasecmp(arg, "stratum+tcp://", 14) &&
-				strncasecmp(arg, "stratum+tcps://", 15) &&
-				strncasecmp(arg, "stratum+ssl://", 14)) 
+				strncasecmp(arg, "stratum+ssl://", 14) &&
+				strncasecmp(arg, "stratum+tcps://", 15)) 
 				{
 					fprintf(stderr, "unknown protocol -- '%s'\n", arg);
 					show_usage_and_exit(1);
@@ -4171,10 +4177,10 @@ int main(int argc, char *argv[])
 
 	flags = CURL_GLOBAL_ALL;
 	if ( !opt_benchmark )
-		if ( strncasecmp( rpc_url, "https:", 6 ) &&				
-				strncasecmp( rpc_url, "stratum+tcps://", 15 ) &&
-				strncasecmp(rpc_url,"stratum+ssl://",14 ))
-				flags &= ~CURL_GLOBAL_SSL;
+		if ( strncasecmp( rpc_url, "https:", 6 )
+       && strncasecmp( rpc_url, "stratum+ssl://", 14 )
+       && strncasecmp( rpc_url, "stratum+tcps://", 15 ) )
+			flags &= ~CURL_GLOBAL_SSL;
 
 	if (curl_global_init(flags)) {
 		applog(LOG_ERR, "CURL initialization failed");
