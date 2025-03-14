@@ -34,7 +34,7 @@
 
 #ifdef __INTELLISENSE__
 #define __byte_perm(x, y, m) (x|y)
-#define tex1Dfetch(t, n) (n)
+#define tex1D(t, n) (t[n])
 #define __CUDACC__
 #include <cuda_texture_types.h>
 #endif
@@ -47,7 +47,7 @@ static unsigned int* d_textures[MAX_GPUS][1];
 #define mixtab2(x) mixtabs[(x)+512]
 #define mixtab3(x) mixtabs[(x)+768]
 
-static texture<unsigned int, 1, cudaReadModeElementType> mixTab0Tex;
+__device__ static cudaTextureObject_t mixTab0Tex;
 
 static const uint32_t mixtab0[] = {
 	0x63633297, 0x7c7c6feb, 0x77775ec7, 0x7b7b7af7, 0xf2f2e8e5, 0x6b6b0ab7, 0x6f6f16a7, 0xc5c56d39,
@@ -242,14 +242,14 @@ uint32_t ROL16(const uint32_t a) {
 
 /***************************************************/
 __global__
-__launch_bounds__(TPB)
+__launch_bounds__(TPB, 1)
 void x13_fugue512_gpu_hash_64(uint32_t threads, uint64_t *g_hash)
 {
 	__shared__ uint32_t mixtabs[1024];
 
 	// load shared mem (with 256 threads)
 	const uint32_t thr = threadIdx.x & 0xFF;
-	const uint32_t tmp = tex1Dfetch(mixTab0Tex, thr);
+	const uint32_t tmp = tex1D<unsigned int>(mixTab0Tex, thr);
 	mixtabs[thr] = tmp;
 	mixtabs[thr+256] = ROR8(tmp);
 	mixtabs[thr+512] = ROL16(tmp);
@@ -257,7 +257,7 @@ void x13_fugue512_gpu_hash_64(uint32_t threads, uint64_t *g_hash)
 #if TPB <= 256
 	if (blockDim.x < 256) {
 		const uint32_t thr = (threadIdx.x + 0x80) & 0xFF;
-		const uint32_t tmp = tex1Dfetch(mixTab0Tex, thr);
+		const uint32_t tmp = tex1D<unsigned int>(mixTab0Tex, thr);
 		mixtabs[thr] = tmp;
 		mixtabs[thr + 256] = ROR8(tmp);
 		mixtabs[thr + 512] = ROL16(tmp);
@@ -367,17 +367,26 @@ void x13_fugue512_gpu_hash_64(uint32_t threads, uint64_t *g_hash)
 	}
 }
 
-#define texDef(id, texname, texmem, texsource, texsize) { \
-	unsigned int *texmem; \
-	cudaMalloc(&texmem, texsize); \
-	d_textures[thr_id][id] = texmem; \
-	cudaMemcpy(texmem, texsource, texsize, cudaMemcpyHostToDevice); \
-	texname.normalized = 0; \
-	texname.filterMode = cudaFilterModePoint; \
-	texname.addressMode[0] = cudaAddressModeClamp; \
-	{ cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<unsigned int>(); \
-	  cudaBindTexture(NULL, &texname, texmem, &channelDesc, texsize ); \
-	} \
+#define texDef(id, texname, texmem, texsource, texsize) {                    					\
+    unsigned int *texmem;                                                  			    	 	\
+    cudaMalloc(&texmem, texsize);                                         				        \
+    d_textures[thr_id][id] = texmem;                                         					\
+    cudaMemcpy(texmem, texsource, texsize, cudaMemcpyHostToDevice);          					\
+                                                                             					\
+    cudaResourceDesc resDesc = {};                                           					\
+    resDesc.resType = cudaResourceTypeArray;                                  					\
+    cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<unsigned int>();					\
+    cudaMallocArray(&resDesc.res.array.array, &channelDesc, texsize / sizeof(unsigned int), 1);	\
+    cudaMemcpyToArray(resDesc.res.array.array, 0, 0, texmem, texsize, cudaMemcpyHostToDevice);  \
+                                                                             					\
+    cudaTextureDesc texDesc = {};                                            					\
+    texDesc.normalizedCoords = 0;                                            					\
+    texDesc.filterMode = cudaFilterModePoint;                                 					\
+    texDesc.addressMode[0] = cudaAddressModeClamp;                           					\
+                                                                             					\
+    cudaTextureObject_t texObject;                                           					\
+    cudaCreateTextureObject(&texObject, &resDesc, &texDesc, nullptr);        					\
+    texname = texObject;                                                     					\
 }
 
 __host__

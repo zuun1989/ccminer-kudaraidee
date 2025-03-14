@@ -40,8 +40,8 @@ template <int ALGO, int TEX_DIM> __global__ void nv_scrypt_core_kernelB_LG(uint3
 __constant__ uint32_t* c_V[TOTAL_WARP_LIMIT];
 
 // using texture references for the "tex" variants of the B kernels
-texture<uint4, 1, cudaReadModeElementType> texRef1D_4_V;
-texture<uint4, 2, cudaReadModeElementType> texRef2D_4_V;
+__device__ static cudaTextureObject_t texRef1D_4_V;
+__device__ static cudaTextureObject_t texRef2D_4_V;
 
 // iteration count N
 __constant__ uint32_t c_N;
@@ -54,37 +54,56 @@ NVKernel::NVKernel() : KernelInterface()
 
 bool NVKernel::bindtexture_1D(uint32_t *d_V, size_t size)
 {
-	cudaChannelFormatDesc channelDesc4 = cudaCreateChannelDesc<uint4>();
-	texRef1D_4_V.normalized = 0;
-	texRef1D_4_V.filterMode = cudaFilterModePoint;
-	texRef1D_4_V.addressMode[0] = cudaAddressModeClamp;
-	checkCudaErrors(cudaBindTexture(NULL, &texRef1D_4_V, d_V, &channelDesc4, size));
+	cudaResourceDesc resDesc;
+	memset(&resDesc, 0, sizeof(resDesc));
+	resDesc.resType = cudaResourceTypeLinear;
+	resDesc.res.linear.devPtr = d_V;
+	resDesc.res.linear.desc = cudaCreateChannelDesc<uint4>();
+	resDesc.res.linear.sizeInBytes = size;
+
+	cudaTextureDesc texDesc;
+	memset(&texDesc, 0, sizeof(texDesc));
+	texDesc.readMode = cudaReadModeElementType;
+	texDesc.addressMode[0] = cudaAddressModeClamp;
+	texDesc.filterMode = cudaFilterModePoint;
+	texDesc.normalizedCoords = 0;
+
+	cudaCreateTextureObject(&texRef1D_4_V, &resDesc, &texDesc, NULL);
 	return true;
 }
 
 bool NVKernel::bindtexture_2D(uint32_t *d_V, int width, int height, size_t pitch)
 {
-	cudaChannelFormatDesc channelDesc4 = cudaCreateChannelDesc<uint4>();
-	texRef2D_4_V.normalized = 0;
-	texRef2D_4_V.filterMode = cudaFilterModePoint;
-	texRef2D_4_V.addressMode[0] = cudaAddressModeClamp;
-	texRef2D_4_V.addressMode[1] = cudaAddressModeClamp;
-	// maintain texture width of TEXWIDTH (max. limit is 65000)
-	while (width > TEXWIDTH) { width /= 2; height *= 2; pitch /= 2; }
-	while (width < TEXWIDTH) { width *= 2; height = (height+1)/2; pitch *= 2; }
-	checkCudaErrors(cudaBindTexture2D(NULL, &texRef2D_4_V, d_V, &channelDesc4, width, height, pitch));
+	cudaResourceDesc resDesc;
+	memset(&resDesc, 0, sizeof(resDesc));
+	resDesc.resType = cudaResourceTypePitch2D;
+	resDesc.res.pitch2D.devPtr = d_V;
+	resDesc.res.pitch2D.desc = cudaCreateChannelDesc<uint4>();
+	resDesc.res.pitch2D.width = width;
+	resDesc.res.pitch2D.height = height;
+	resDesc.res.pitch2D.pitchInBytes = pitch;
+
+	cudaTextureDesc texDesc;
+	memset(&texDesc, 0, sizeof(texDesc));
+	texDesc.readMode = cudaReadModeElementType;
+	texDesc.addressMode[0] = cudaAddressModeClamp;
+	texDesc.addressMode[1] = cudaAddressModeClamp;
+	texDesc.filterMode = cudaFilterModePoint;
+	texDesc.normalizedCoords = 0;
+
+	cudaCreateTextureObject(&texRef2D_4_V, &resDesc, &texDesc, NULL);
 	return true;
 }
 
 bool NVKernel::unbindtexture_1D()
 {
-	checkCudaErrors(cudaUnbindTexture(texRef1D_4_V));
+	cudaDestroyTextureObject(texRef1D_4_V);
 	return true;
 }
 
 bool NVKernel::unbindtexture_2D()
 {
-	checkCudaErrors(cudaUnbindTexture(texRef2D_4_V));
+	cudaDestroyTextureObject(texRef2D_4_V);
 	return true;
 }
 
@@ -265,41 +284,39 @@ __device__ __forceinline__ void __transposed_write_BC(uint4 (&B)[4], uint4 (&C)[
 template <int TEX_DIM> __device__ __forceinline__ void __transposed_read_BC(const uint4 *S, uint4 (&B)[4], uint4 (&C)[4], int spacing, int row)
 {
 	unsigned int laneId = __laneId();
+	unsigned int lane8 = laneId % 8;
+	unsigned int tile  = laneId / 8;
 
-	unsigned int lane8 = laneId%8;
-	unsigned int tile  = laneId/8;
-
-	// Perform the same transposition as in __transposed_write_BC, but in reverse order.
-	// See the illustrations in comments for __transposed_write_BC.
-
-	// read and rotate rows, in reverse row order
+	// Temporary arrays to hold rotated data
 	uint4 T1[8], T2[8];
 	const uint4 *loc;
-	loc = &S[(spacing*2*(32*tile   ) +  lane8      + 8*__shfl(row, 0, 8))];
-	T1[7] = TEX_DIM==0 ? __ldg(loc) : TEX_DIM==1 ? tex1Dfetch(texRef1D_4_V, loc-(uint4*)c_V[0]) : tex2D(texRef2D_4_V, 0.5f + ((loc-(uint4*)c_V[0])%TEXWIDTH), 0.5f + ((loc-(uint4*)c_V[0])/TEXWIDTH));
-	loc = &S[(spacing*2*(32*tile+4 ) + (lane8+7)%8 + 8*__shfl(row, 1, 8))];
-	T1[6] = TEX_DIM==0 ? __ldg(loc) : TEX_DIM==1 ? tex1Dfetch(texRef1D_4_V, loc-(uint4*)c_V[0]) : tex2D(texRef2D_4_V, 0.5f + ((loc-(uint4*)c_V[0])%TEXWIDTH), 0.5f + ((loc-(uint4*)c_V[0])/TEXWIDTH));
-	loc = &S[(spacing*2*(32*tile+8 ) + (lane8+6)%8 + 8*__shfl(row, 2, 8))];
-	T1[5] = TEX_DIM==0 ? __ldg(loc) : TEX_DIM==1 ? tex1Dfetch(texRef1D_4_V, loc-(uint4*)c_V[0]) : tex2D(texRef2D_4_V, 0.5f + ((loc-(uint4*)c_V[0])%TEXWIDTH), 0.5f + ((loc-(uint4*)c_V[0])/TEXWIDTH));
-	loc = &S[(spacing*2*(32*tile+12) + (lane8+5)%8 + 8*__shfl(row, 3, 8))];
-	T1[4] = TEX_DIM==0 ? __ldg(loc) : TEX_DIM==1 ? tex1Dfetch(texRef1D_4_V, loc-(uint4*)c_V[0]) : tex2D(texRef2D_4_V, 0.5f + ((loc-(uint4*)c_V[0])%TEXWIDTH), 0.5f + ((loc-(uint4*)c_V[0])/TEXWIDTH));
-	loc = &S[(spacing*2*(32*tile+16) + (lane8+4)%8 + 8*__shfl(row, 4, 8))];
-	T1[3] = TEX_DIM==0 ? __ldg(loc) : TEX_DIM==1 ? tex1Dfetch(texRef1D_4_V, loc-(uint4*)c_V[0]) : tex2D(texRef2D_4_V, 0.5f + ((loc-(uint4*)c_V[0])%TEXWIDTH), 0.5f + ((loc-(uint4*)c_V[0])/TEXWIDTH));
-	loc = &S[(spacing*2*(32*tile+20) + (lane8+3)%8 + 8*__shfl(row, 5, 8))];
-	T1[2] = TEX_DIM==0 ? __ldg(loc) : TEX_DIM==1 ? tex1Dfetch(texRef1D_4_V, loc-(uint4*)c_V[0]) : tex2D(texRef2D_4_V, 0.5f + ((loc-(uint4*)c_V[0])%TEXWIDTH), 0.5f + ((loc-(uint4*)c_V[0])/TEXWIDTH));
-	loc = &S[(spacing*2*(32*tile+24) + (lane8+2)%8 + 8*__shfl(row, 6, 8))];
-	T1[1] = TEX_DIM==0 ? __ldg(loc) : TEX_DIM==1 ? tex1Dfetch(texRef1D_4_V, loc-(uint4*)c_V[0]) : tex2D(texRef2D_4_V, 0.5f + ((loc-(uint4*)c_V[0])%TEXWIDTH), 0.5f + ((loc-(uint4*)c_V[0])/TEXWIDTH));
-	loc = &S[(spacing*2*(32*tile+28) + (lane8+1)%8 + 8*__shfl(row, 7, 8))];
-	T1[0] = TEX_DIM==0 ? __ldg(loc) : TEX_DIM==1 ? tex1Dfetch(texRef1D_4_V, loc-(uint4*)c_V[0]) : tex2D(texRef2D_4_V, 0.5f + ((loc-(uint4*)c_V[0])%TEXWIDTH), 0.5f + ((loc-(uint4*)c_V[0])/TEXWIDTH));
+
+	// read and rotate rows, in reverse row order
+	for (int i = 0; i < 8; i++) {
+		int offset = spacing * 2 * (32 * tile + i * 4);
+		loc = &S[offset + (lane8 + 7 - i) % 8 + 8 * __shfl(row, i, 8)];
+		
+		// Fetch data based on the texture dimension
+		T1[i] = (TEX_DIM == 0) 
+			? __ldg(loc) 
+			: (TEX_DIM == 1) 
+				? tex1D<uint4>(texRef1D_4_V, loc - (uint4*)c_V[0]) 
+				: tex2D<uint4>(texRef2D_4_V, 0.5f + ((loc - (uint4*)c_V[0]) % TEXWIDTH), 0.5f + ((loc - (uint4*)c_V[0]) / TEXWIDTH));
+	}
 
 	// rotate columns down using a barrel shifter simulation
-	// column X is rotated down by (X+1) items, or up by (8-(X+1)) = (7-X) items
-#pragma unroll 8
-	for(int n = 0; n < 8; n++) T2[n] = ((7-lane8) & 1) ? T1[(n+1) % 8] : T1[n];
-#pragma unroll 8
-	for(int n = 0; n < 8; n++) T1[n] = ((7-lane8) & 2) ? T2[(n+2) % 8] : T2[n];
-#pragma unroll 8
-	for(int n = 0; n < 8; n++) T2[n] = ((7-lane8) & 4) ? T1[(n+4) % 8] : T1[n];
+	#pragma unroll 8
+	for (int n = 0; n < 8; n++) {
+		T2[n] = ((7 - lane8) & 1) ? T1[(n + 1) % 8] : T1[n];
+	}
+	#pragma unroll 8
+	for (int n = 0; n < 8; n++) {
+		T1[n] = ((7 - lane8) & 2) ? T2[(n + 2) % 8] : T2[n];
+	}
+	#pragma unroll 8
+	for (int n = 0; n < 8; n++) {
+		T2[n] = ((7 - lane8) & 4) ? T1[(n + 4) % 8] : T1[n];
+	}
 
 	// rotate rows
 	B[0] = T2[0];

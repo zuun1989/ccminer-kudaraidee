@@ -15,10 +15,10 @@ static unsigned int* d_textures[MAX_GPUS][8];
 __constant__ uint32_t GPUstate[30]; // Single GPU
 __constant__ uint32_t pTarget[8]; // Single GPU
 
-static texture<unsigned int, 1, cudaReadModeElementType> mixTab0Tex;
-static texture<unsigned int, 1, cudaReadModeElementType> mixTab1Tex;
-static texture<unsigned int, 1, cudaReadModeElementType> mixTab2Tex;
-static texture<unsigned int, 1, cudaReadModeElementType> mixTab3Tex;
+__device__ static cudaTextureObject_t mixTab0Tex;
+__device__ static cudaTextureObject_t mixTab1Tex;
+__device__ static cudaTextureObject_t mixTab2Tex;
+__device__ static cudaTextureObject_t mixTab3Tex;
 
 #if USE_SHARED
 #define mixtab0(x) (*((uint32_t*)mixtabs + (    (x))))
@@ -26,10 +26,10 @@ static texture<unsigned int, 1, cudaReadModeElementType> mixTab3Tex;
 #define mixtab2(x) (*((uint32_t*)mixtabs + (512+(x))))
 #define mixtab3(x) (*((uint32_t*)mixtabs + (768+(x))))
 #else
-#define mixtab0(x) tex1Dfetch(mixTab0Tex, x)
-#define mixtab1(x) tex1Dfetch(mixTab1Tex, x)
-#define mixtab2(x) tex1Dfetch(mixTab2Tex, x)
-#define mixtab3(x) tex1Dfetch(mixTab3Tex, x)
+#define mixtab0(x) tex1D<unsigned int>(mixTab0Tex, x)
+#define mixtab1(x) tex1D<unsigned int>(mixTab1Tex, x)
+#define mixtab2(x) tex1D<unsigned int>(mixTab2Tex, x)
+#define mixtab3(x) tex1D<unsigned int>(mixTab3Tex, x)
 #endif
 
 /* TABELLEN */
@@ -545,7 +545,7 @@ static const uint32_t mixtab3_cpu[] = {
 /* GPU - FUNKTIONEN */
 
 #if USE_SHARED
-__global__ void  __launch_bounds__(256)
+__global__ void  __launch_bounds__(256, 1)
 #else
 __global__ void
 #endif
@@ -554,10 +554,10 @@ fugue256_gpu_hash(int thr_id, uint32_t threads, uint32_t startNounce, void *outp
 #if USE_SHARED
 	extern __shared__ char mixtabs[];
 
-	*((uint32_t*)mixtabs + (    threadIdx.x)) = tex1Dfetch(mixTab0Tex, threadIdx.x);
-	*((uint32_t*)mixtabs + (256+threadIdx.x)) = tex1Dfetch(mixTab1Tex, threadIdx.x);
-	*((uint32_t*)mixtabs + (512+threadIdx.x)) = tex1Dfetch(mixTab2Tex, threadIdx.x);
-	*((uint32_t*)mixtabs + (768+threadIdx.x)) = tex1Dfetch(mixTab3Tex, threadIdx.x);
+	*((uint32_t*)mixtabs + (    threadIdx.x)) = tex1D<unsigned int>(mixTab0Tex, threadIdx.x);
+	*((uint32_t*)mixtabs + (256+threadIdx.x)) = tex1D<unsigned int>(mixTab1Tex, threadIdx.x);
+	*((uint32_t*)mixtabs + (512+threadIdx.x)) = tex1D<unsigned int>(mixTab2Tex, threadIdx.x);
+	*((uint32_t*)mixtabs + (768+threadIdx.x)) = tex1D<unsigned int>(mixTab3Tex, threadIdx.x);
 
 	__syncthreads();
 #endif
@@ -709,16 +709,27 @@ fugue256_gpu_hash(int thr_id, uint32_t threads, uint32_t startNounce, void *outp
 }
 
 #define texDef(id, texname, texmem, texsource, texsize) { \
-	unsigned int *texmem; \
-	cudaMalloc(&texmem, texsize); \
-	d_textures[thr_id][id] = texmem; \
-	cudaMemcpy(texmem, texsource, texsize, cudaMemcpyHostToDevice); \
-	texname.normalized = 0; \
-	texname.filterMode = cudaFilterModePoint; \
-	texname.addressMode[0] = cudaAddressModeClamp; \
-	{ cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<unsigned int>(); \
-	  cudaBindTexture(NULL, &texname, texmem, &channelDesc, texsize ); \
-	} \
+    unsigned int *texmem;                                                     \
+    cudaMalloc(&texmem, texsize);                                             \
+    d_textures[thr_id][id] = texmem;                                          \
+    cudaMemcpy(texmem, texsource, texsize, cudaMemcpyHostToDevice);           \
+                                                                              \
+    /* Prepare the resource description */                                    \
+    cudaResourceDesc resDesc = {};                                            \
+    resDesc.resType = cudaResourceTypeLinear;                                 \
+    resDesc.res.linear.devPtr = texmem;                                       \
+    resDesc.res.linear.desc = cudaCreateChannelDesc<unsigned int>();          \
+    resDesc.res.linear.sizeInBytes = texsize;                                 \
+                                                                              \
+    /* Prepare the texture description */                                     \
+    cudaTextureDesc texDesc = {};                                             \
+    texDesc.normalizedCoords = 0;                                             \
+    texDesc.filterMode = cudaFilterModePoint;                                 \
+    texDesc.addressMode[0] = cudaAddressModeClamp;                            \
+    texDesc.readMode = cudaReadModeElementType;                               \
+                                                                              \
+    /* Create the texture object */                                           \
+    cudaCreateTextureObject(&texname, &resDesc, &texDesc, nullptr);           \
 }
 
 __host__

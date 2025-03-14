@@ -42,12 +42,12 @@ __constant__ uint32_t c_SCRATCH_WU_PER_WARP;   // (SCRATCH * WU_PER_WARP)
 __constant__ uint32_t c_SCRATCH_WU_PER_WARP_1; // (SCRATCH * WU_PER_WARP) - 1
 
 // using texture references for the "tex" variants of the B kernels
-texture<uint4, 1, cudaReadModeElementType> texRef1D_4_V;
-texture<uint4, 2, cudaReadModeElementType> texRef2D_4_V;
+__device__ static cudaTextureObject_t texRef1D_4_V;
+__device__ static cudaTextureObject_t texRef2D_4_V;
 
 template <int ALGO> __device__  __forceinline__ void block_mixer(uint4 &b, uint4 &bx, const int x1, const int x2, const int x3);
 
-static __host__ __device__ uint4& operator^=(uint4& left, const uint4& right) {
+static __device__ uint4& operator^=(uint4& left, const uint4& right) {
 	left.x ^= right.x;
 	left.y ^= right.y;
 	left.z ^= right.z;
@@ -55,14 +55,13 @@ static __host__ __device__ uint4& operator^=(uint4& left, const uint4& right) {
 	return left;
 }
 
-static __host__ __device__ uint4& operator+=(uint4& left, const uint4& right) {
+static __device__ uint4& operator+=(uint4& left, const uint4& right) {
 	left.x += right.x;
 	left.y += right.y;
 	left.z += right.z;
 	left.w += right.w;
 	return left;
 }
-
 
 /* write_keys writes the 8 keys being processed by a warp to the global
  * scratchpad. To effectively use memory bandwidth, it performs the writes
@@ -130,11 +129,11 @@ void read_keys_direct(uint4 &b, uint4 &bx, uint32_t start)
 				b  = *((uint4 *)(&scratch[c ? t2_start : start]));
 				bx = *((uint4 *)(&scratch[c ? start : t2_start]));
 		} else if (TEX_DIM == 1) {
-				b  = tex1Dfetch(texRef1D_4_V, c ? t2_start : start);
-				bx = tex1Dfetch(texRef1D_4_V, c ? start : t2_start);
+				b  = tex1D<uint4>(texRef1D_4_V, c ? t2_start : start);
+				bx = tex1D<uint4>(texRef1D_4_V, c ? start : t2_start);
 		} else if (TEX_DIM == 2) {
-				b  = tex2D(texRef2D_4_V, 0.5f + ((c ? t2_start : start)%TEXWIDTH), 0.5f + ((c ? t2_start : start)/TEXWIDTH));
-				bx = tex2D(texRef2D_4_V, 0.5f + ((c ? start : t2_start)%TEXWIDTH), 0.5f + ((c ? start : t2_start)/TEXWIDTH));
+				b  = tex2D<uint4>(texRef2D_4_V, 0.5f + ((c ? t2_start : start)%TEXWIDTH), 0.5f + ((c ? t2_start : start)/TEXWIDTH));
+				bx = tex2D<uint4>(texRef2D_4_V, 0.5f + ((c ? start : t2_start)%TEXWIDTH), 0.5f + ((c ? start : t2_start)/TEXWIDTH));
 		}
 		uint4 temp = b; b = (c ? bx : b); bx = (c ? temp : bx);
 		uint32_t *st = &tmp[threadIdx.x/32][(threadIdx.x + 28)%32];
@@ -144,11 +143,11 @@ void read_keys_direct(uint4 &b, uint4 &bx, uint32_t start)
 		*s = bx.w; bx.w = *st;
 	} else {
 				 if (TEX_DIM == 0) b = *((uint4 *)(&scratch[start]));
-		else if (TEX_DIM == 1) b = tex1Dfetch(texRef1D_4_V, start/4);
-		else if (TEX_DIM == 2) b = tex2D(texRef2D_4_V, 0.5f + ((start/4)%TEXWIDTH), 0.5f + ((start/4)/TEXWIDTH));
+		else if (TEX_DIM == 1) b = tex1D<uint4>(texRef1D_4_V, start/4);
+		else if (TEX_DIM == 2) b = tex2D<uint4>(texRef2D_4_V, 0.5f + ((start/4)%TEXWIDTH), 0.5f + ((start/4)/TEXWIDTH));
 				 if (TEX_DIM == 0) bx = *((uint4 *)(&scratch[start+16]));
-		else if (TEX_DIM == 1) bx = tex1Dfetch(texRef1D_4_V, (start+16)/4);
-		else if (TEX_DIM == 2) bx = tex2D(texRef2D_4_V, 0.5f + (((start+16)/4)%TEXWIDTH), 0.5f + (((start+16)/4)/TEXWIDTH));
+		else if (TEX_DIM == 1) bx = tex1D<uint4>(texRef1D_4_V, (start+16)/4);
+		else if (TEX_DIM == 2) bx = tex2D<uint4>(texRef2D_4_V, 0.5f + (((start+16)/4)%TEXWIDTH), 0.5f + (((start+16)/4)/TEXWIDTH));
 	}
 }
 
@@ -663,37 +662,56 @@ TestKernel::TestKernel() : KernelInterface()
 
 bool TestKernel::bindtexture_1D(uint32_t *d_V, size_t size)
 {
-	cudaChannelFormatDesc channelDesc4 = cudaCreateChannelDesc<uint4>();
-	texRef1D_4_V.normalized = 0;
-	texRef1D_4_V.filterMode = cudaFilterModePoint;
-	texRef1D_4_V.addressMode[0] = cudaAddressModeClamp;
-	checkCudaErrors(cudaBindTexture(NULL, &texRef1D_4_V, d_V, &channelDesc4, size));
+	cudaResourceDesc resDesc;
+	memset(&resDesc, 0, sizeof(resDesc));
+	resDesc.resType = cudaResourceTypeLinear;
+	resDesc.res.linear.devPtr = d_V;
+	resDesc.res.linear.desc = cudaCreateChannelDesc<uint4>();
+	resDesc.res.linear.sizeInBytes = size;
+
+	cudaTextureDesc texDesc;
+	memset(&texDesc, 0, sizeof(texDesc));
+	texDesc.readMode = cudaReadModeElementType;
+	texDesc.addressMode[0] = cudaAddressModeClamp;
+	texDesc.filterMode = cudaFilterModePoint;
+	texDesc.normalizedCoords = 0;
+
+	cudaCreateTextureObject(&texRef1D_4_V, &resDesc, &texDesc, NULL);
 	return true;
 }
 
 bool TestKernel::bindtexture_2D(uint32_t *d_V, int width, int height, size_t pitch)
 {
-	cudaChannelFormatDesc channelDesc4 = cudaCreateChannelDesc<uint4>();
-	texRef2D_4_V.normalized = 0;
-	texRef2D_4_V.filterMode = cudaFilterModePoint;
-	texRef2D_4_V.addressMode[0] = cudaAddressModeClamp;
-	texRef2D_4_V.addressMode[1] = cudaAddressModeClamp;
-	// maintain texture width of TEXWIDTH (max. limit is 65000)
-	while (width > TEXWIDTH) { width /= 2; height *= 2; pitch /= 2; }
-	while (width < TEXWIDTH) { width *= 2; height = (height+1)/2; pitch *= 2; }
-	checkCudaErrors(cudaBindTexture2D(NULL, &texRef2D_4_V, d_V, &channelDesc4, width, height, pitch));
+	cudaResourceDesc resDesc;
+	memset(&resDesc, 0, sizeof(resDesc));
+	resDesc.resType = cudaResourceTypePitch2D;
+	resDesc.res.pitch2D.devPtr = d_V;
+	resDesc.res.pitch2D.desc = cudaCreateChannelDesc<uint4>();
+	resDesc.res.pitch2D.width = width;
+	resDesc.res.pitch2D.height = height;
+	resDesc.res.pitch2D.pitchInBytes = pitch;
+
+	cudaTextureDesc texDesc;
+	memset(&texDesc, 0, sizeof(texDesc));
+	texDesc.readMode = cudaReadModeElementType;
+	texDesc.addressMode[0] = cudaAddressModeClamp;
+	texDesc.addressMode[1] = cudaAddressModeClamp;
+	texDesc.filterMode = cudaFilterModePoint;
+	texDesc.normalizedCoords = 0;
+
+	cudaCreateTextureObject(&texRef2D_4_V, &resDesc, &texDesc, NULL);
 	return true;
 }
 
 bool TestKernel::unbindtexture_1D()
 {
-	checkCudaErrors(cudaUnbindTexture(texRef1D_4_V));
+	cudaDestroyTextureObject(texRef1D_4_V);
 	return true;
 }
 
 bool TestKernel::unbindtexture_2D()
 {
-	checkCudaErrors(cudaUnbindTexture(texRef2D_4_V));
+	cudaDestroyTextureObject(texRef2D_4_V);
 	return true;
 }
 

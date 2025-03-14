@@ -32,23 +32,23 @@ __constant__ uint32_t groestl_gpu_msg[32];
                     | ((SPH_C32(x) <<  8) & SPH_C32(0x00FF0000)) \
                     | ((SPH_C32(x) << 24) & SPH_C32(0xFF000000)))
 
-#define T0up(x) tex1Dfetch(t0up, x)
-#define T0dn(x) tex1Dfetch(t0dn, x)
-#define T1up(x) tex1Dfetch(t1up, x)
-#define T1dn(x) tex1Dfetch(t1dn, x)
-#define T2up(x) tex1Dfetch(t2up, x)
-#define T2dn(x) tex1Dfetch(t2dn, x)
-#define T3up(x) tex1Dfetch(t3up, x)
-#define T3dn(x) tex1Dfetch(t3dn, x)
+#define T0up(x) tex1D<unsigned int>(t0up, x)
+#define T0dn(x) tex1D<unsigned int>(t0dn, x)
+#define T1up(x) tex1D<unsigned int>(t1up, x)
+#define T1dn(x) tex1D<unsigned int>(t1dn, x)
+#define T2up(x) tex1D<unsigned int>(t2up, x)
+#define T2dn(x) tex1D<unsigned int>(t2dn, x)
+#define T3up(x) tex1D<unsigned int>(t3up, x)
+#define T3dn(x) tex1D<unsigned int>(t3dn, x)
 
-texture<unsigned int, 1, cudaReadModeElementType> t0up;
-texture<unsigned int, 1, cudaReadModeElementType> t0dn;
-texture<unsigned int, 1, cudaReadModeElementType> t1up;
-texture<unsigned int, 1, cudaReadModeElementType> t1dn;
-texture<unsigned int, 1, cudaReadModeElementType> t2up;
-texture<unsigned int, 1, cudaReadModeElementType> t2dn;
-texture<unsigned int, 1, cudaReadModeElementType> t3up;
-texture<unsigned int, 1, cudaReadModeElementType> t3dn;
+__device__ static cudaTextureObject_t t0up;
+__device__ static cudaTextureObject_t t0dn;
+__device__ static cudaTextureObject_t t1up;
+__device__ static cudaTextureObject_t t1dn;
+__device__ static cudaTextureObject_t t2up;
+__device__ static cudaTextureObject_t t2dn;
+__device__ static cudaTextureObject_t t3up;
+__device__ static cudaTextureObject_t t3dn;
 
 uint32_t T0up_cpu[] = {
 	C32e(0xc632f4a5), C32e(0xf86f9784), C32e(0xee5eb099), C32e(0xf67a8c8d),
@@ -731,17 +731,26 @@ template <int BLOCKSIZE> __global__ void groestl512_gpu_hash(uint32_t threads, u
 	}
 }
 
-#define texDef(id, texname, texmem, texsource, texsize) { \
-	unsigned int *texmem; \
-	cudaMalloc(&texmem, texsize); \
-	d_textures[thr_id][id] = texmem; \
-	cudaMemcpy(texmem, texsource, texsize, cudaMemcpyHostToDevice); \
-	texname.normalized = 0; \
-	texname.filterMode = cudaFilterModePoint; \
-	texname.addressMode[0] = cudaAddressModeClamp; \
-	{ cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<unsigned int>(); \
-	  cudaBindTexture(NULL, &texname, texmem, &channelDesc, texsize ); \
-	} \
+#define texDef(id, texname, texmem, texsource, texsize)                               \
+{                                                                                     \
+    unsigned int* texmem;                                                             \
+    cudaMalloc(&texmem, texsize);                                                     \
+    d_textures[thr_id][id] = texmem;                                                  \
+    cudaMemcpy(texmem, texsource, texsize, cudaMemcpyHostToDevice);                   \
+                                                                                      \
+    cudaResourceDesc resDesc = {};                                                    \
+    resDesc.resType = cudaResourceTypeLinear;                                         \
+    resDesc.res.linear.devPtr = texmem;                                               \
+    resDesc.res.linear.desc = cudaCreateChannelDesc<unsigned int>();                  \
+    resDesc.res.linear.sizeInBytes = texsize;                                         \
+                                                                                      \
+    cudaTextureDesc texDesc = {};                                                     \
+    texDesc.normalizedCoords = 0;                                                     \
+    texDesc.filterMode = cudaFilterModePoint;                                         \
+    texDesc.addressMode[0] = cudaAddressModeClamp;                                    \
+    texDesc.readMode = cudaReadModeElementType;                                       \
+                                                                                      \
+    cudaCreateTextureObject(&texname, &resDesc, &texDesc, nullptr);                   \
 }
 
 // Setup Function
