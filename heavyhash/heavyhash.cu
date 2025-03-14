@@ -128,7 +128,7 @@ extern "C" void free_heavyhash(int thr_id)
 	if (!init[thr_id])
 		return;
 
-	cudaThreadSynchronize();
+	cudaDeviceSynchronize();
 
 	heavyhash_cpu_free(thr_id);
 
