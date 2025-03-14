@@ -233,8 +233,6 @@ static bool use_compat_kernels[MAX_GPUS] = { 0 };
 #define _DEBUG_PREFIX "x16r-"
 #include "cuda_debug.cuh"
 
-//static int algo80_tests[HASH_FUNC_COUNT] = { 0 };
-//static int algo64_tests[HASH_FUNC_COUNT] = { 0 };
 static int algo80_fails[HASH_FUNC_COUNT] = { 0 };
 
 extern "C" int scanhash_x16r(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done)
@@ -922,9 +920,6 @@ extern "C" int scanhash_x16rt(int thr_id, struct work* work, uint32_t max_nonce,
         do {
                 int order = 0;
                 
-                uint32_t start = pdata[19];
-                //uint32_t foundNonce;
-                
                 // Hash with CUDA
                 switch (algo80)
                 {
@@ -977,8 +972,6 @@ extern "C" int scanhash_x16rt(int thr_id, struct work* work, uint32_t max_nonce,
                                 x16_sha512_cuda_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id]); order++;
                                 break;
                 }
-                uint8_t algo;
-
 
                 for (int i = 1; i < 16; i++)
                 {
