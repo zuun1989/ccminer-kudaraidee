@@ -55,6 +55,7 @@ void algo_free_all(int thr_id)
 	free_bastion(thr_id);
 	free_bitcore(thr_id);
 	free_blake256(thr_id);
+	free_blake2b(thr_id);
 	free_blake2s(thr_id);
 	free_bmw(thr_id);
 	free_bmw512(thr_id);
