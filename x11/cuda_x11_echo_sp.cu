@@ -104,8 +104,6 @@ void x11_echo512_gpu_hash_64_final_sp(uint32_t threads, uint64_t *g_hash, uint32
 		*(uint2x4*)&h[0] = __ldg4((uint2x4*)&hash[0]);
 		*(uint2x4*)&h[8] = __ldg4((uint2x4*)&hash[8]);
 
-		uint64_t backup = *(uint64_t*)&h[6];
-
 		k0 = 512 + 8;
 
 		__threadfence_block();
@@ -259,17 +257,12 @@ static void x11_echo512_gpu_hash_64_sp(uint32_t threads, uint32_t *g_hash)
 	const uint32_t thread = (blockDim.x * blockIdx.x + threadIdx.x);
 	uint32_t k0;
 	uint32_t h[16];
-	uint32_t hash[16];
 	if (thread < threads){
 
 		uint32_t *Hash = &g_hash[thread << 4];
 
 		*(uint2x4*)&h[0] = __ldg4((uint2x4*)&Hash[0]);
 		*(uint2x4*)&h[8] = __ldg4((uint2x4*)&Hash[8]);
-
-		//		*(uint2x4*)&hash[0] = *(uint2x4*)&h[0];
-		//		*(uint2x4*)&hash[8] = *(uint2x4*)&h[8];
-
 
 		const uint32_t P[48] = {
 			0xe7e9f5f5, 0xf5e7e9f5, 0xb3b36b23, 0xb3dbe7af, 0xa4213d7e, 0xf5e7e9f5, 0xb3b36b23, 0xb3dbe7af,
