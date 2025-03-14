@@ -373,6 +373,7 @@ extern void free_heavyhash(int thr_id);
 extern void free_bastion(int thr_id);
 extern void free_bitcore(int thr_id);
 extern void free_blake256(int thr_id);
+extern void free_blake2b(int thr_id);
 extern void free_blake2s(int thr_id);
 extern void free_bmw(int thr_id);
 extern void free_bmw512(int thr_id);
