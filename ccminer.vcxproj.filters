@@ -13,6 +13,21 @@
     <Filter Include="Header Files">
       <UniqueIdentifier>{431cec61-9376-4de9-aae9-04c4250652e7}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\argon2d">
+      <UniqueIdentifier>{735d31a1-05bf-4e57-8a16-05fd8564dee4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\argon2d">
+      <UniqueIdentifier>{92b95e5c-fda1-4549-85cd-6903583680ae}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\argon2d\argon2ref">
+      <UniqueIdentifier>{82267434-2787-4657-809f-00118e98bb68}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\argon2d\argon2ref">
+      <UniqueIdentifier>{06ad968c-d19e-47e2-bad5-50b434821ae4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\argon2d\argon2ref\blake2">
+      <UniqueIdentifier>{a115f28c-6c23-4a64-929a-00d513255e55}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Header Files\compat">
       <UniqueIdentifier>{cc8bb259-5332-4a45-ba81-f4840a55b604}</UniqueIdentifier>
     </Filter>
@@ -123,6 +138,22 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="argon2d\argon2ref\argon2.c">
+      <Filter>Source Files\argon2d\argon2ref</Filter>
+    </ClCompile>
+    <ClCompile Include="argon2d\argon2ref\core.c">
+      <Filter>Source Files\argon2d\argon2ref</Filter>
+    </ClCompile>
+    <ClCompile Include="argon2d\argon2ref\encoding.c">
+      <Filter>Source Files\argon2d\argon2ref</Filter>
+    </ClCompile>
+    <ClCompile Include="argon2d\argon2ref\opt.c">
+      <Filter>Source Files\argon2d\argon2ref</Filter>
+    </ClCompile>
+    <ClCompile Include="argon2d\argon2ref\thread.c">
+      <Filter>Source Files\argon2d\argon2ref</Filter>
+    </ClCompile>
+    <ClCompile Include="argon2d\argon2ref\blake2\blake2b.c"/>  
     <ClCompile Include="compat\jansson\dump.c">
       <Filter>Source Files\jansson</Filter>
     </ClCompile>
@@ -376,6 +407,36 @@
     </ClInclude>
     <ClInclude Include="miner.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="argon2d\argon2d_kernel.h">
+      <Filter>Source Files\argon2d</Filter>
+    </ClInclude>
+    <ClInclude Include="argon2d\cudaexception.h">
+      <Filter>Source Files\argon2d</Filter>
+    </ClInclude>
+    <ClInclude Include="argon2d\argon2ref\argon2.h">
+      <Filter>Header Files\argon2d\argon2ref</Filter>
+    </ClInclude>
+    <ClInclude Include="argon2d\argon2ref\blake2\blake2.h">
+      <Filter>Header Files\argon2d\argon2ref</Filter>
+    </ClInclude>
+    <ClInclude Include="argon2d\argon2ref\blake2\blake2-impl.h">
+      <Filter>Header Files\argon2d\argon2ref</Filter>
+    </ClInclude>
+    <ClInclude Include="argon2d\argon2ref\blake2\blakma-round-opt.h">
+      <Filter>Header Files\argon2d\argon2ref</Filter>
+    </ClInclude>
+    <ClInclude Include="argon2d\argon2ref\blake2\blakma-round-ref.h">
+      <Filter>Header Files\argon2d\argon2ref</Filter>
+    </ClInclude>
+    <ClInclude Include="argon2d\argon2ref\core.h">
+      <Filter>Header Files\argon2d\argon2ref</Filter>
+    </ClInclude>
+    <ClInclude Include="argon2d\argon2ref\encoding.h">
+      <Filter>Header Files\argon2d\argon2ref</Filter>
+    </ClInclude>
+    <ClInclude Include="argon2d\argon2ref\thread.h">
+      <Filter>Header Files\argon2d\argon2ref</Filter>
     </ClInclude>
     <ClInclude Include="compat\sys\time.h">
       <Filter>Header Files\compat\sys</Filter>
@@ -642,6 +703,15 @@
     </CudaCompile>
     <CudaCompile Include="cuda_groestlcoin.cu">
       <Filter>Source Files\CUDA</Filter>
+    </CudaCompile>
+    <CudaCompile Include="argon2d\argon2d.cu">
+      <Filter>Source Files\argon2d</Filter>
+    </CudaCompile>
+    <CudaCompile Include="argon2d\argon2d_fill.cu">
+      <Filter>Source Files\argon2d</Filter>
+    </CudaCompile>
+    <CudaCompile Include="argon2d\blake2b_kernels.cu">
+      <Filter>Source Files\argon2d</Filter>
     </CudaCompile>
     <CudaCompile Include="JHA\cuda_jha_keccak512.cu">
       <Filter>Source Files\CUDA\JHA</Filter>

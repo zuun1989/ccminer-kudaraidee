@@ -22,6 +22,13 @@ ccminer_SOURCES	= elist.h miner.h compat.h \
 			  ccminer.cpp pools.cpp util.cpp bench.cpp bignum.cpp \
 			  api.cpp hashlog.cpp nvml.cpp stats.cpp sysinfos.cpp cuda.cpp \
 			  nvsettings.cpp \
+			  argon2d/argon2ref/blake2/blake2b.c \
+			  argon2d/argon2ref/argon2.c \
+			  argon2d/argon2ref/core.c \
+			  argon2d/argon2ref/opt.c \
+			  argon2d/argon2ref/thread.c \
+			  argon2d/argon2ref/encoding.c \
+			  argon2d/argon2d.cu argon2d/argon2d_fill.cu argon2d/blake2b_kernels.cu argon2d/argon2d_kernel.h\
 			  equi/equi-stratum.cpp equi/equi.cpp equi/blake2/blake2bx.cpp \
 			  allium.cu \
 			  heavyhash/heavyhash.cu \

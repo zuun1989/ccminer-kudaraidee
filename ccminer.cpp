@@ -11,6 +11,7 @@
 
 #include <ccminer-config.h>
 
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -255,6 +256,7 @@ Options:\n\
   -a, --algo=ALGO       specify the hash algorithm to use\n\
 			0x10		ChainOX\n\
 			allium		Lyra2 blake2s\n\
+			argon2d1000	Zero Dynamics Cash\n\
 			anime		Animecoin\n\
 			heavyhash	oBTC coin\n\
 			bastion		Hefty bastion\n\
@@ -262,7 +264,7 @@ Options:\n\
 			blake		Blake 256 (SFR)\n\
 			blake2s		Blake2-S 256 (NEVA)\n\
 			blakecoin	Fast Blake 256 (8 rounds)\n\
-			bmw		BMW 256\n\
+			bmw			BMW 256\n\
 			bmw512		BMW 512\n\
 			cryptolight	AEON cryptonight (MEM/2)\n\
 			cryptonight	XMR cryptonight\n\
@@ -1773,6 +1775,7 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		opt_difficulty = 1.;
 
 	switch (opt_algo) {
+		case ALGO_ARGON2D1000:
 		case ALGO_HMQ1725:
 		case ALGO_JACKPOT:
 		case ALGO_JHA:
@@ -2361,6 +2364,7 @@ static void *miner_thread(void *userdata)
 			case ALGO_LYRA2:
 			case ALGO_LYRA2Z:
 			case ALGO_ALLIUM:
+			case ALGO_ARGON2D1000:
 			case ALGO_NEOSCRYPT:
 			case ALGO_XAYA:
 			case ALGO_SIB:
@@ -2533,6 +2537,9 @@ static void *miner_thread(void *userdata)
 			break;
 		case ALGO_ALLIUM:
 			rc = scanhash_allium(thr_id, &work, max_nonce, &hashes_done);
+			break;
+		case ALGO_ARGON2D1000:
+			rc = scanhash_argon2d1000(thr_id, &work, max_nonce, &hashes_done);
 			break;
 		case ALGO_ANIME:
 			rc = scanhash_anime(thr_id, &work, max_nonce, &hashes_done);

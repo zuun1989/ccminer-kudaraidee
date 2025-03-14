@@ -7,7 +7,7 @@ If you find this tool useful and like to support its continuous
           development, then consider a donation.
 
 kudaraidee@github:
-  DOGE  : D6oP3WPygJ4NR26XxfFydUsCiNS4oX9rqb
+  DOGE  : D5fSxMfZ5tKYSxxQiJPeRoMjYcyHnffBwD
 
 tpruvot@github:
   BTC  : 1AJdfCpLWPNoAMDfHF1wD5y8VgKSSTHxPo
@@ -58,6 +58,7 @@ Ziftrcoin (ZR5)
 Boolberry (Wild Keccak)
 Monero (Cryptonight)
 Aeon (Cryptonight-lite)
+Zero Dynamics Cash (argon2d1000)
 
 where some of these coins have a VERY NOTABLE nVidia advantage
 over competing AMD (OpenCL Only) implementations.
@@ -77,6 +78,8 @@ its command line interface and options.
 
   -a, --algo=ALGO       specify the algorithm to use
                           0x10 		  use to mine ChainOX
+                          allium      use to mine Garlic
+                          argon2d1000 use to mine Zero Dynamics Cash                          
                           bastion     use to mine Joincoin
                           bitcore     use to mine Bitcore's Timetravel10
                           blake       use to mine Saffroncoin (Blake256)
@@ -224,6 +227,8 @@ Wildkeccak specific:
 
 >>> Examples <<<
 
+Example for Cash Mining on mininpatriot.com with a single gpu in your system
+    ccminer -a argon2d1000 -o stratum+tcp://mine.evepool.pw:8132 -u walletaddress.username -p x
 
 Example for Heavycoin Mining on heavycoinpool.com with a single gpu in your system
     ccminer -t 1 -a heavy -o stratum+tcp://stratum01.heavycoinpool.com:5333 -u <<username.worker>> -p <<workerpassword>> -v 8
