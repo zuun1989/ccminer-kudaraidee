@@ -158,7 +158,7 @@
 #define PACKAGE_BUGREPORT ""
 
 /* Define to the full name of this package. */
-#define PACKAGE_NAME "ccminer"
+#define PACKAGE_NAME "ccminer-kudaraidee"
 
 /* Define to the home page for this package. */
 #define PACKAGE_URL "http://github.com/kudaraidee/ccminer-kudaraidee"
