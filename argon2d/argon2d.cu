@@ -71,7 +71,7 @@ void argon2d1000_0dync_hash( void *output, const void *input )
 __host__
 void ar_set_throughput(int thr_id){
     int avail_mem = cuda_available_memory(thr_id);
-    uint32_t throughput = (avail_mem * 1024 * 0.90) / ALGO_TOTAL_BLOCKS;
+    uint32_t throughput = (avail_mem * 1024 * 0.75) / ALGO_TOTAL_BLOCKS;
     throughput = cuda_default_throughput(thr_id, throughput);
     throughput = (throughput / 16) * 16;
 
