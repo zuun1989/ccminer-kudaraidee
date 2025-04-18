@@ -129,13 +129,24 @@ endif
 ccminer_LDADD += -lcuda
 
 nvcc_ARCH :=
+nvcc_ARCH += -gencode=arch=compute_120,code=\"sm_120,compute_120\" # CUDA 12.8
+nvcc_ARCH += -gencode=arch=compute_101,code=\"sm_101,compute_101\"
+nvcc_ARCH += -gencode=arch=compute_100a,code=\"sm_100a,compute_100a\"
+nvcc_ARCH += -gencode=arch=compute_100,code=\"sm_100,compute_100\"
+nvcc_ARCH += -gencode=arch=compute_90a,code=\"sm_90a,compute_90a\"
+nvcc_ARCH += -gencode=arch=compute_90,code=\"sm_90,compute_90\"
+nvcc_ARCH += -gencode=arch=compute_89,code=\"sm_89,compute_89\"
+nvcc_ARCH += -gencode=arch=compute_87,code=\"sm_87,compute_87\"
 nvcc_ARCH += -gencode=arch=compute_86,code=\"sm_86,compute_86\"
-nvcc_ARCH += -gencode=arch=compute_75,code=\"sm_75,compute_75\"
-nvcc_ARCH += -gencode=arch=compute_61,code=\"sm_61,compute_61\"
-#nvcc_ARCH += -gencode=arch=compute_52,code=\"sm_52,compute_52\"
-#nvcc_ARCH += -gencode=arch=compute_50,code=\"sm_50,compute_50\"
-#nvcc_ARCH += -gencode=arch=compute_35,code=\"sm_35,compute_35\"
-#nvcc_ARCH += -gencode=arch=compute_30,code=\"sm_30,compute_30\"
+nvcc_ARCH += -gencode=arch=compute_80,code=\"sm_80,compute_80\"
+nvcc_ARCH += -gencode=arch=compute_75,code=\"sm_75,compute_75\" # CUDA 10
+nvcc_ARCH += -gencode=arch=compute_72,code=\"sm_72,compute_72\"
+nvcc_ARCH += -gencode=arch=compute_70,code=\"sm_70,compute_70\" # CUDA 9.1
+nvcc_ARCH += -gencode=arch=compute_62,code=\"sm_62,compute_62\"
+nvcc_ARCH += -gencode=arch=compute_61,code=\"sm_61,compute_61\" # CUDA 8
+nvcc_ARCH += -gencode=arch=compute_60,code=\"sm_60,compute_60\"
+nvcc_ARCH += -gencode=arch=compute_52,code=\"sm_52,compute_52\"
+nvcc_ARCH += -gencode=arch=compute_50,code=\"sm_50,compute_50\"
 
 nvcc_FLAGS = $(nvcc_ARCH) @CUDA_INCLUDES@ -I. @CUDA_CFLAGS@
 nvcc_FLAGS += $(JANSSON_INCLUDES) --ptxas-options="-v"
@@ -196,10 +207,31 @@ quark/cuda_quark_compactionTest.o: quark/cuda_quark_compactionTest.cu
 JHA/cuda_jha_compactionTest.o: JHA/cuda_jha_compactionTest.cu
 	$(NVCC) $(nvcc_FLAGS) --maxrregcount=80 -o $@ -c $<
 
+# This object does not use cuda device code but call the different kernels (autotune)
+scrypt/salsa_kernel.o: scrypt/salsa_kernel.cu
+	$(NVCC) $(JANSSON_INCLUDES) -I. @CUDA_INCLUDES@ @CUDA_CFLAGS@ $(nvcc_ARCH) -o $@ -c $<
+
+# These kernels are for older devices (SM)
+
+scrypt/test_kernel.o: scrypt/test_kernel.cu
+	$(NVCC) $(JANSSON_INCLUDES) -I. @CUDA_INCLUDES@ @CUDA_CFLAGS@ $(nvcc_ARCH) -o $@ -c $<
+
+scrypt/fermi_kernel.o: scrypt/fermi_kernel.cu
+	$(NVCC) $(JANSSON_INCLUDES) -I. @CUDA_INCLUDES@ @CUDA_CFLAGS@ $(nvcc_ARCH) -o $@ -c $<
+
+scrypt/kepler_kernel.o: scrypt/kepler_kernel.cu
+	$(NVCC) $(JANSSON_INCLUDES) -I. @CUDA_INCLUDES@ @CUDA_CFLAGS@ $(nvcc_ARCH) -o $@ -c $<
+
+scrypt/nv_kernel.o: scrypt/nv_kernel.cu
+	$(NVCC) $(JANSSON_INCLUDES) -I. @CUDA_INCLUDES@ @CUDA_CFLAGS@ $(nvcc_ARCH) -o $@ -c $<
 
 scrypt/titan_kernel.o: scrypt/titan_kernel.cu
-	$(NVCC) $(nvcc_FLAGS) -gencode=arch=compute_35,code=\"sm_35,compute_35\" -o $@ -c $<
+	$(NVCC) $(nvcc_FLAGS) $(nvcc_ARCH) -o $@ -c $<
 
 skein.o: skein.cu
 	$(NVCC) $(nvcc_FLAGS) --maxrregcount=64 -o $@ -c $<
+
+neoscrypt/cuda_neoscrypt.o: neoscrypt/cuda_neoscrypt.cu
+	$(NVCC) $(JANSSON_INCLUDES) -I. @CUDA_INCLUDES@ @CUDA_CFLAGS@ $(nvcc_ARCH) -o $@ -c $<
+
 
