@@ -71,13 +71,13 @@ ccminer_SOURCES	= elist.h miner.h compat.h \
 			  neoscrypt/neoscrypt.cpp neoscrypt/neoscrypt-cpu.c neoscrypt/cuda_neoscrypt.cu \
 			  pentablake.cu skein.cu cuda_skeincoin.cu skein2.cpp zr5.cu \
 			  skunk/skunk.cu skunk/cuda_skunk.cu skunk/cuda_skunk_streebog.cu \
-			  sha256/sha256d.cu sha256/cuda_sha256d.cu sha256/sha256t.cu sha256/cuda_sha256t.cu \
+			  sha256/sha256d.cu sha256/cuda_sha256d.cu sha256/sha256t.cu sha256/cuda_sha256t.cu sha256/sha256csm.cu sha256/cuda_sha256csm.cu \
 			  sia/sia.cu sia/sia-rpc.cpp sph/blake2b.c \
 			  sph/bmw.c sph/blake.c sph/groestl.c sph/jh.c sph/keccak.c sph/skein.c \
 			  sph/cubehash.c sph/echo.c sph/luffa.c sph/sha2.c sph/shavite.c sph/simd.c \
 			  sph/hamsi.c sph/hamsi_helper.c sph/streebog.c sph/tiger.c \
 			  sph/shabal.c sph/whirlpool.c sph/sha2big.c sph/haval.c \
-			  sph/ripemd.c sph/sph_sha2.c sph/sha3d.c \
+			  sph/ripemd.c sph/sph_sha2.c sph/sha3d.c sph/sha256_Y.c \
 			  polytimos.cu \
 			  lbry/lbry.cu lbry/cuda_sha256_lbry.cu lbry/cuda_sha512_lbry.cu lbry/cuda_lbry_merged.cu \
 			  qubit/qubit.cu qubit/qubit_luffa512.cu qubit/deep.cu qubit/luffa.cu \
@@ -95,7 +95,9 @@ ccminer_SOURCES	= elist.h miner.h compat.h \
 			  x17/x17.cu x17/hmq17.cu x17/cuda_x17_haval256.cu x17/cuda_x17_sha512.cu \
 			  x11/phi.cu x11/cuda_streebog_maxwell.cu \
 			  x11/c11.cu x11/s3.cu x11/sib.cu x11/veltor.cu x11/cuda_streebog.cu x11/0x10.cu \
-			  x21/x21s.cu x21/cuda_sha256_2.cu x21/cuda_tiger192.cu 
+			  x21/x21s.cu x21/cuda_sha256_2.cu x21/cuda_tiger192.cu \
+			  sph/yescrypt.h sph/yescrypt-platform.h sph/yescrypt-opt.c sph/yescrypt-common.c \
+			  yescrypt/cuda_yescrypt.cu yescrypt/yescrypt.cu 
 			  
 # scrypt
 ccminer_SOURCES += scrypt.cpp scrypt-jane.cpp \
