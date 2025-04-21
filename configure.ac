@@ -1,4 +1,4 @@
-AC_INIT([ccminer-kudaraidee], [1.2.0], [], [ccminer-kudaraidee], [https://github.com/kudaraidee/ccminer-kudaraidee])
+AC_INIT([ccminer-kudaraidee], [1.3.0], [], [ccminer-kudaraidee], [https://github.com/kudaraidee/ccminer-kudaraidee])
 
 AC_PREREQ([2.69])
 AC_CANONICAL_HOST
