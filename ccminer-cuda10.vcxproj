@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Release|Win32">
@@ -344,6 +344,7 @@
     <ClCompile Include="sph\hamsi_helper.c" />
     <ClCompile Include="sph\whirlpool.c" />
     <ClCompile Include="x13\sm3.c" />
+	<ClCompile Include="rinhash\rinhash_scanhash.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="compat.h" />
@@ -616,6 +617,7 @@
 	<CudaCompile Include="x21\x21s.cu" />
     <CudaCompile Include="x21\cuda_sha256_2.cu" />
     <CudaCompile Include="x21\cuda_tiger192.cu" />
+	<CudaCompile Include="rinhash\rinhash.cu" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\ccminer.ico" />

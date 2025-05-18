@@ -97,7 +97,8 @@ ccminer_SOURCES	= elist.h miner.h compat.h \
 			  x11/c11.cu x11/s3.cu x11/sib.cu x11/veltor.cu x11/cuda_streebog.cu x11/0x10.cu \
 			  x21/x21s.cu x21/cuda_sha256_2.cu x21/cuda_tiger192.cu \
 			  sph/yescrypt.h sph/yescrypt-platform.h sph/yescrypt-opt.c sph/yescrypt-common.c \
-			  yescrypt/cuda_yescrypt.cu yescrypt/yescrypt.cu 
+			  yescrypt/cuda_yescrypt.cu yescrypt/yescrypt.cu \
+			  rinhash/rinhash_scanhash.cpp rinhash/rinhash.cu
 			  
 # scrypt
 ccminer_SOURCES += scrypt.cpp scrypt-jane.cpp \
@@ -131,13 +132,13 @@ endif
 ccminer_LDADD += -lcuda
 
 nvcc_ARCH :=
-nvcc_ARCH += -gencode=arch=compute_120,code=\"sm_120,compute_120\" # CUDA 12.8
-nvcc_ARCH += -gencode=arch=compute_101,code=\"sm_101,compute_101\"
-nvcc_ARCH += -gencode=arch=compute_100a,code=\"sm_100a,compute_100a\"
-nvcc_ARCH += -gencode=arch=compute_100,code=\"sm_100,compute_100\"
-nvcc_ARCH += -gencode=arch=compute_90a,code=\"sm_90a,compute_90a\"
+#nvcc_ARCH += -gencode=arch=compute_120,code=\"sm_120,compute_120\" # CUDA 12.8
+#nvcc_ARCH += -gencode=arch=compute_101,code=\"sm_101,compute_101\"
+#nvcc_ARCH += -gencode=arch=compute_100a,code=\"sm_100a,compute_100a\"
+#nvcc_ARCH += -gencode=arch=compute_100,code=\"sm_100,compute_100\"
+nvcc_ARCH += -gencode=arch=compute_90a,code=\"sm_90a,compute_90a\" #CUDA 12.0
 nvcc_ARCH += -gencode=arch=compute_90,code=\"sm_90,compute_90\"
-nvcc_ARCH += -gencode=arch=compute_89,code=\"sm_89,compute_89\"
+nvcc_ARCH += -gencode=arch=compute_89,code=\"sm_89,compute_89\" #CUDA 11
 nvcc_ARCH += -gencode=arch=compute_87,code=\"sm_87,compute_87\"
 nvcc_ARCH += -gencode=arch=compute_86,code=\"sm_86,compute_86\"
 nvcc_ARCH += -gencode=arch=compute_80,code=\"sm_80,compute_80\"

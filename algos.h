@@ -50,6 +50,7 @@ enum sha_algos {
 	ALGO_POLYTIMOS,
 	ALGO_QUARK,
 	ALGO_QUBIT,
+	ALGO_RINHASH, 
 	ALGO_SCRYPT,
 	ALGO_SCRYPT_JANE,
 	ALGO_SHA256CSM,
@@ -144,6 +145,7 @@ static const char *algo_names[] = {
 	"polytimos",
 	"quark",
 	"qubit",
+	"rinhash",
 	"scrypt",
 	"scrypt-jane",
 	"sha256csm",
@@ -243,6 +245,8 @@ static inline int algo_to_int(char* arg)
 			i = ALGO_ZR5;
 		else if (!strcasecmp("neoscrypt-xaya", arg))
 			i = ALGO_XAYA;
+		else if (!strcasecmp("rinhash", arg))
+			i = ALGO_RINHASH;			
 		else
 			i = -1;
 	}

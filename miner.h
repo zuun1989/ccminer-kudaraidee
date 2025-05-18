@@ -327,6 +327,7 @@ extern int scanhash_phi(int thr_id, struct work* work, uint32_t max_nonce, unsig
 extern int scanhash_polytimos(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_quark(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_qubit(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_rinhash(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_sha256d(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_sha256t(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_sha256csm(int thr_id, struct work* work, uint32_t max_nonce, unsigned long* hashes_done);
