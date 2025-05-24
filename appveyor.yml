@@ -8,7 +8,7 @@ branches:
     - appveyor
     - hunter
 clone_depth: 100
-os: "Visual Studio 2022"
+os: "Visual Studio 2019"
 environment:
   matrix:
     - CUDA_VER: "10.2"
@@ -58,8 +58,8 @@ install:
 
 build_script:
   - if "%CUDA_VER%" == "10.2" msbuild ccminer-cuda10.vcxproj /m /p:Configuration=Release
-  - if "%CUDA_VER%" == "11.7" msbuild ccminer-cuda11.vcxproj /m /p:Configuration=Release
-  - if "%CUDA_VER%" == "12.8" msbuild ccminer.vcxproj /m /p:Configuration=Release
+  - if "%CUDA_VER%" == "11.7.0" msbuild ccminer-cuda11.vcxproj /m /p:Configuration=Release
+  - if "%CUDA_VER%" == "12.8.0" msbuild ccminer.vcxproj /m /p:Configuration=Release
   - ps: |
       . ccminer/buildinfo.ps1
       mv ccminer.zip $env:project_name-$env:project_version-cuda$env:CUDA_VER-$env:system_name-$env:system_processor.zip
