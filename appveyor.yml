@@ -13,29 +13,29 @@ environment:
   matrix:
     - CUDA_VER: "10.2"
       CUVER: 10
-    - CUDA_VER: "11.7"
+    - CUDA_VER: "11.7.0"
       CUVER: 11
-    - CUDA_VER: "12.8"
+    - CUDA_VER: "12.8.0"
       CUVER: 12.8
   HUNTER_CACHE_TOKEN:
     secure: VnpF1MH5MEFvUI5MiMMMFlmbDdst+bfom5ZFVgalYPp/SYDhbejjXJm9Dla/IgpC
 
 cache:
   - C:\CUDA\v10.2 -> appveyor.yml
-  - C:\CUDA\v11.7 -> appveyor.yml
-  - C:\CUDA\v12.8 -> appveyor.yml
+  - C:\CUDA\v11.7.0 -> appveyor.yml
+  - C:\CUDA\v12.8.0 -> appveyor.yml
 
 # Download CUDA Windows installer (local) and extract /compiler/* to /CUDA/vX.0/ zip archive.
 install:
   - git submodule update --init --recursive
   - if "%CUDA_VER%" == "10.2" set CUDA_ARCHIVE=cuda_10.2.89_441.22_win10
-  - if "%CUDA_VER%" == "11.7" set CUDA_ARCHIVE=cuda_11.7.0_516.01_windows
-  - if "%CUDA_VER%" == "12.8" set CUDA_ARCHIVE=cuda_12.8.0_571.96_windows
+  - if "%CUDA_VER%" == "11.7.0" set CUDA_ARCHIVE=cuda_11.7.0_516.01_windows
+  - if "%CUDA_VER%" == "12.8.0" set CUDA_ARCHIVE=cuda_12.8.0_571.96_windows
   - if NOT EXIST C:\CUDA\v%CUDA_VER% (
       if %CUVER% GEQ 11 (
         curl -L https://developer.download.nvidia.com/compute/cuda/%CUDA_VER%/local_installers/%CUDA_ARCHIVE%.exe -o %CUDA_ARCHIVE%.exe
       ) else (
-        curl -L https://developer.nvidia.com/compute/cuda/%CUDA_VER%/Prod/local_installers/%CUDA_ARCHIVE% -o %CUDA_ARCHIVE%.exe
+        curl -L https://developer.download.nvidia.com/compute/cuda/%CUDA_VER%/Prod/local_installers/%CUDA_ARCHIVE%.exe -o %CUDA_ARCHIVE%.exe
       )
     )
 
