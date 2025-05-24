@@ -57,7 +57,6 @@ install:
   - nvcc -V
 
 build_script:
-  - call "%ProgramFiles(x86)%\Microsoft Visual Studio\2022\Community\Common7\Tools\VsMSBuildCmd.bat"
   - if "%CUDA_VER%" == "10.2" msbuild ccminer-cuda10.vcxproj /m /p:Configuration=Release
   - if "%CUDA_VER%" == "11.7" msbuild ccminer-cuda11.vcxproj /m /p:Configuration=Release
   - if "%CUDA_VER%" == "12.8" msbuild ccminer.vcxproj /m /p:Configuration=Release
