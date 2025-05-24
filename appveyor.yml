@@ -52,8 +52,6 @@ install:
       xcopy C:\CUDA\v%CUDA_VER%\cudart\* C:\CUDA\v%CUDA_VER%\ /S /Y
     )
 
-  - ps: Start-Process -FilePath "C:\CUDA\v%CUDA_VER%" -ArgumentList "-s nvcc_%CUDA_VER%" -Wait -NoNewWindow
-  - 7z x %CUDA_ARCHIVE%
   
   - copy CUDAVisualStudioIntegration\\extras\\visual_studio_integration\\MSBuildExtensions\\* "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\VC\v160\BuildCustomizations"
   - set PATH="C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v%CUDA_VER%\bin\";%PATH%
