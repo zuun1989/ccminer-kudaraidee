@@ -32,13 +32,12 @@ install:
   - if "%CUDA_VER%" == "10.2" set CUDA_ARCHIVE=cuda_10.2.89_441.22_win10
   - if "%CUDA_VER%" == "11.7.0" set CUDA_ARCHIVE=cuda_11.7.0_516.01_windows
   - if "%CUDA_VER%" == "12.8.0" set CUDA_ARCHIVE=cuda_12.8.0_571.96_windows
-  - if NOT EXIST "C:\projects\deps\$env:CUDA_ARCHIVE" (
-      if %CUVER% GEQ 11 (
+  - if %CUVER% GEQ 11 (
         curl -L https://developer.download.nvidia.com/compute/cuda/%CUDA_VER%/local_installers/%CUDA_ARCHIVE%.exe -o %CUDA_ARCHIVE%.exe
       ) else (
         curl -L https://developer.download.nvidia.com/compute/cuda/%CUDA_VER%/Prod/local_installers/%CUDA_ARCHIVE%.exe -o %CUDA_ARCHIVE%.exe
       )
-    )
+   
 
   # Install CUDA
   - ps: Start-Process -FilePath "C:\projects\deps\$env:CUDA_ARCHIVE" -ArgumentList "-s nvcc_%CUDA_VER%" -Wait -NoNewWindow
