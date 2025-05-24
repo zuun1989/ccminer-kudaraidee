@@ -53,7 +53,7 @@ install:
     )
 
   
-  - copy C:\CUDA\v%CUDA_VER%\CUDAVisualStudioIntegration\extras\visual_studio_integration\MSBuildExtensions\* "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\VC\v160\BuildCustomizations"
+  - copy C:\CUDA\v%CUDA_VER%\extras\visual_studio_integration\MSBuildExtensions\* "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\VC\v160\BuildCustomizations"
 
   - nvcc -V
 
