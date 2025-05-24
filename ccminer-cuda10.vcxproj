@@ -257,6 +257,9 @@
     <ClCompile Include="nvapi.cpp" />
     <ClCompile Include="nvsettings.cpp" />
     <ClCompile Include="pools.cpp" />
+    <ClCompile Include="sph\sha256_Y.c" />
+    <ClCompile Include="sph\yescrypt-common.c" />
+    <ClCompile Include="sph\yescrypt-opt.c" />
     <ClCompile Include="util.cpp" />
     <ClCompile Include="bench.cpp" />
     <ClCompile Include="bignum.cpp" />
@@ -281,6 +284,10 @@
     <ClCompile Include="neoscrypt\neoscrypt.cpp" />
     <ClCompile Include="neoscrypt\neoscrypt-cpu.c" />
     <ClInclude Include="neoscrypt\cuda_vectors.h" />
+    <ClInclude Include="sph\sha256_Y.h" />
+    <ClInclude Include="sph\SHA3api_ref.h" />
+    <ClInclude Include="sph\yescrypt-platform.h" />
+    <ClInclude Include="sph\yescrypt.h" />
     <ClInclude Include="x11\cuda_x11_simd512_sm2.cuh" />
     <ClInclude Include="x16\cuda_x16.h" />
     <CudaCompile Include="Algo256\bmw.cu" />
@@ -435,6 +442,8 @@
     <CudaCompile Include="sha256\sha256t.cu" />
     <CudaCompile Include="x11\cuda_x11_echo_sp.cu" />
     <CudaCompile Include="x11\cuda_x11_shavite512_sp.cu" />
+    <CudaCompile Include="yescrypt\cuda_yescrypt.cu" />
+    <CudaCompile Include="yescrypt\yescrypt.cu" />
     <CudaCompile Include="zr5.cu" />
     <CudaCompile Include="heavy\cuda_blake512.cu">
     </CudaCompile>
