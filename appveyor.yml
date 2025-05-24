@@ -12,9 +12,9 @@ os: "Visual Studio 2019"
 environment:
   matrix:
     - CUDA_VER: "10.2"
-      CUVER: 10
+      CUVER: 10.2
     - CUDA_VER: "11.7.0"
-      CUVER: 11
+      CUVER: 11.7
     - CUDA_VER: "12.8.0"
       CUVER: 12.8
   HUNTER_CACHE_TOKEN:
@@ -27,35 +27,16 @@ cache:
 
 # Download CUDA Windows installer (local) and extract /compiler/* to /CUDA/vX.0/ zip archive.
 install:
-  - git submodule update --init --recursive
-  - if "%CUDA_VER%" == "10.2" set CUDA_ARCHIVE=cuda_10.2.89_441.22_win10
-  - if "%CUDA_VER%" == "11.7.0" set CUDA_ARCHIVE=cuda_11.7.0_516.01_windows
-  - if "%CUDA_VER%" == "12.8.0" set CUDA_ARCHIVE=cuda_12.8.0_571.96_windows
-  - if NOT EXIST C:\CUDA\v%CUDA_VER% (
-      if %CUVER% GEQ 11 (
-        curl -L https://developer.download.nvidia.com/compute/cuda/%CUDA_VER%/local_installers/%CUDA_ARCHIVE%.exe -o %CUDA_ARCHIVE%.exe
-      ) else (
-        curl -L https://developer.download.nvidia.com/compute/cuda/%CUDA_VER%/Prod/local_installers/%CUDA_ARCHIVE%.exe -o %CUDA_ARCHIVE%.exe
-      )
-    )
+  - mkdir C:\projects\deps
+  - cd C:\projects\deps
+  # Install CUDA
+  - appveyor DownloadFile https://developer.download.nvidia.com/compute/cuda/%CUDA_VER%/Prod/local_installers/%CUDA_ARCHIVE% -FileName %CUDA_ARCHIVE%
+  - ps: Start-Process -FilePath "C:\projects\deps\$env:CUDA_ARCHIVE" -ArgumentList "-s nvcc_%CUDA_VER%" -Wait -NoNewWindow
+  - 7z x %CUDA_ARCHIVE%
+  - copy CUDAVisualStudioIntegration\\extras\\visual_studio_integration\\MSBuildExtensions\\* "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\VC\v160\BuildCustomizations"
+  - set PATH="C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v%CUDA_VER%\bin\";%PATH%
+  - set CUDACXX="C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v%CUDA_VER%\bin\nvcc"
 
-  - if NOT EXIST C:\CUDA mkdir C:\CUDA
-  - if NOT EXIST C:\CUDA\v%CUDA_VER% (
-      if %CUVER% GEQ 11 (7z x %CUDA_ARCHIVE%.exe -oC:\CUDA cuda_nvcc/nvcc/* cuda_cudart/* cuda_nvrtc/nvrtc*/*)
-      else (7z x %CUDA_ARCHIVE%.exe -oC:\CUDA nvcc/* nvrtc*/*)
-    )
-  - if NOT EXIST C:\CUDA\v%CUDA_VER% (
-      if %CUVER% GEQ 11 (move C:\CUDA\cuda_nvcc\nvcc C:\CUDA\v%CUDA_VER% && move C:\CUDA\cuda_cudart\cudart C:\CUDA\v%CUDA_VER%\ )
-      else (rename C:\CUDA\nvcc v%CUDA_VER%)
-    )
-  - if EXIST C:\CUDA\v%CUDA_VER%\cudart (
-      xcopy C:\CUDA\v%CUDA_VER%\cudart\* C:\CUDA\v%CUDA_VER%\ /S /Y
-    )
-
-  
-  - copy C:\CUDA\v%CUDA_VER%\extras\visual_studio_integration\MSBuildExtensions\* "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\VC\v160\BuildCustomizations"
-
-  - nvcc -V
 
 build_script:
   - if "%CUDA_VER%" == "10.2" msbuild ccminer-cuda10.vcxproj /m /p:Configuration=Release
