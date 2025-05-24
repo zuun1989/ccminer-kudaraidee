@@ -28,7 +28,7 @@ cache:
 # Download CUDA Windows installer (local) and extract /compiler/* to /CUDA/vX.0/ zip archive.
 install:
   - git submodule update --init --recursive
-  - if "%CUDA_VER%" == "10.1" set CUDA_ARCHIVE=cuda_10.2.89_441.22_win10
+  - if "%CUDA_VER%" == "10.2" set CUDA_ARCHIVE=cuda_10.2.89_441.22_win10
   - if "%CUDA_VER%" == "11.7" set CUDA_ARCHIVE=cuda_11.7.0_516.01_windows
   - if "%CUDA_VER%" == "12.8" set CUDA_ARCHIVE=cuda_12.8.0_571.96_windows
   - if NOT EXIST C:\CUDA\v%CUDA_VER% (
@@ -58,7 +58,7 @@ install:
 
 build_script:
   - call "%ProgramFiles(x86)%\Microsoft Visual Studio\2022\Community\Common7\Tools\VsMSBuildCmd.bat"
-  - if "%CUDA_VER%" == "10.0" msbuild ccminer-cuda10.vcxproj /m /p:Configuration=Release
+  - if "%CUDA_VER%" == "10.2" msbuild ccminer-cuda10.vcxproj /m /p:Configuration=Release
   - if "%CUDA_VER%" == "11.7" msbuild ccminer-cuda11.vcxproj /m /p:Configuration=Release
   - if "%CUDA_VER%" == "12.8" msbuild ccminer.vcxproj /m /p:Configuration=Release
   - ps: |
