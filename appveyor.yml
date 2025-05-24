@@ -39,10 +39,29 @@ install:
       )
     )
 
+  - if NOT EXIST C:\CUDA mkdir C:\CUDA
+  - if NOT EXIST C:\CUDA\v%CUDA_VER% (
+      if %CUVER% GEQ 11 (7z x %CUDA_ARCHIVE%.exe -oC:\CUDA cuda_nvcc/nvcc/* cuda_cudart/* cuda_nvrtc/nvrtc*/*)
+      else (7z x %CUDA_ARCHIVE%.exe -oC:\CUDA nvcc/* nvrtc*/*)
+    )
+  - if NOT EXIST C:\CUDA\v%CUDA_VER% (
+      if %CUVER% GEQ 11 (move C:\CUDA\cuda_nvcc\nvcc C:\CUDA\v%CUDA_VER% && move C:\CUDA\cuda_cudart\cudart C:\CUDA\v%CUDA_VER%\ )
+      else (rename C:\CUDA\nvcc v%CUDA_VER%)
+    )
+  - if EXIST C:\CUDA\v%CUDA_VER%\cudart (
+      xcopy C:\CUDA\v%CUDA_VER%\cudart\* C:\CUDA\v%CUDA_VER%\ /S /Y
+    )
+
+  - ps: Start-Process -FilePath "C:\CUDA\v%CUDA_VER%" -ArgumentList "-s nvcc_%CUDA_VER%" -Wait -NoNewWindow
   - 7z x %CUDA_ARCHIVE%
+  
   - copy CUDAVisualStudioIntegration\\extras\\visual_studio_integration\\MSBuildExtensions\\* "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\VC\v160\BuildCustomizations"
   - set PATH="C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v%CUDA_VER%\bin\";%PATH%
   - set CUDACXX="C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v%CUDA_VER%\bin\nvcc"
+  
+  - set PATH=C:\Python36-x64;C:\Python36-x64\Scripts;%PATH%;C:\CUDA\v%CUDA_VER%\bin
+  - pip install requests gitpython
+  - nvcc -V
 
 build_script:
   - if "%CUDA_VER%" == "10.2" msbuild ccminer-cuda10.vcxproj /m /p:Configuration=Release
