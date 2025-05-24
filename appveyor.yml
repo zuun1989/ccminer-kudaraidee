@@ -1,0 +1,85 @@
+
+version: "{build}"
+branches:
+  only:
+    - master
+    - /v\d+\..+/
+    - /release.*/
+    - appveyor
+    - hunter
+clone_depth: 100
+os: "Visual Studio 2022"
+environment:
+  matrix:
+    - CUDA_VER: "10.2"
+      CUVER: 10
+    - CUDA_VER: "11.7"
+      CUVER: 11
+    - CUDA_VER: "12.8"
+      CUVER: 12.8
+  HUNTER_CACHE_TOKEN:
+    secure: VnpF1MH5MEFvUI5MiMMMFlmbDdst+bfom5ZFVgalYPp/SYDhbejjXJm9Dla/IgpC
+
+cache:
+  - C:\CUDA\v10.2 -> appveyor.yml
+  - C:\CUDA\v11.7 -> appveyor.yml
+  - C:\CUDA\v12.8 -> appveyor.yml
+
+# Download CUDA Windows installer (local) and extract /compiler/* to /CUDA/vX.0/ zip archive.
+install:
+  - git submodule update --init --recursive
+  - if "%CUDA_VER%" == "10.1" set CUDA_ARCHIVE=cuda_10.2.89_441.22_win10
+  - if "%CUDA_VER%" == "11.7" set CUDA_ARCHIVE=cuda_11.7.0_516.01_windows
+  - if "%CUDA_VER%" == "12.8" set CUDA_ARCHIVE=cuda_12.8.0_571.96_windows
+  - if NOT EXIST C:\CUDA\v%CUDA_VER% (
+      if %CUVER% GEQ 11 (
+        curl -L https://developer.download.nvidia.com/compute/cuda/%CUDA_VER%/local_installers/%CUDA_ARCHIVE%.exe -o %CUDA_ARCHIVE%.exe
+      ) else (
+        curl -L https://developer.nvidia.com/compute/cuda/%CUDA_VER%/Prod/local_installers/%CUDA_ARCHIVE% -o %CUDA_ARCHIVE%.exe
+      )
+    )
+
+  - if NOT EXIST C:\CUDA mkdir C:\CUDA
+  - if NOT EXIST C:\CUDA\v%CUDA_VER% (
+      if %CUVER% GEQ 11 (7z x %CUDA_ARCHIVE%.exe -oC:\CUDA cuda_nvcc/nvcc/* cuda_cudart/* cuda_nvrtc/nvrtc*/*)
+      else (7z x %CUDA_ARCHIVE%.exe -oC:\CUDA nvcc/* nvrtc*/*)
+    )
+  - if NOT EXIST C:\CUDA\v%CUDA_VER% (
+      if %CUVER% GEQ 11 (move C:\CUDA\cuda_nvcc\nvcc C:\CUDA\v%CUDA_VER% && move C:\CUDA\cuda_cudart\cudart C:\CUDA\v%CUDA_VER%\ )
+      else (rename C:\CUDA\nvcc v%CUDA_VER%)
+    )
+  - if EXIST C:\CUDA\v%CUDA_VER%\cudart (
+      xcopy C:\CUDA\v%CUDA_VER%\cudart\* C:\CUDA\v%CUDA_VER%\ /S /Y
+    )
+
+  - set PATH=C:\Python36-x64;C:\Python36-x64\Scripts;%PATH%;C:\CUDA\v%CUDA_VER%\bin
+  - pip install requests gitpython
+  - nvcc -V
+
+build_script:
+  - call "%ProgramFiles(x86)%\Microsoft Visual Studio\2022\Community\Common7\Tools\VsMSBuildCmd.bat"
+  - if "%CUDA_VER%" == "10.0" msbuild ccminer-cuda10.vcxproj /m /p:Configuration=Release
+  - if "%CUDA_VER%" == "11.7" msbuild ccminer-cuda11.vcxproj /m /p:Configuration=Release
+  - if "%CUDA_VER%" == "12.8" msbuild ccminer.vcxproj /m /p:Configuration=Release
+  - ps: |
+      . ccminer/buildinfo.ps1
+      mv ccminer.zip $env:project_name-$env:project_version-cuda$env:CUDA_VER-$env:system_name-$env:system_processor.zip
+
+artifacts:
+  - path: ccminer-*.zip
+    name: ccminer
+
+deploy:
+  # Create GitHub release, also set the release name and description.
+  provider: GitHub
+  tag: $(appveyor_repo_tag_name)
+  release: "$(project_name) $(project_version)"
+  description: ""
+  force_update: true  # Force update in case Travis CI created the release before.
+  prerelease: $(project_version_is_prerelease)
+  draft: false
+  artifact: ccminer
+  auth_token:
+    secure: uDRcvbW+9GIyKlZ9guJfWOQ6jg0An6eULg6mEkYgdKn/GVNpYSKvO5oHxP0U8a+e
+  on:
+    appveyor_repo_tag: true
