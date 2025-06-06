@@ -98,7 +98,7 @@ ccminer_SOURCES	= elist.h miner.h compat.h \
 			  x21/x21s.cu x21/cuda_sha256_2.cu x21/cuda_tiger192.cu \
 			  sph/yescrypt.h sph/yescrypt-platform.h sph/yescrypt-opt.c sph/yescrypt-common.c \
 			  yescrypt/cuda_yescrypt.cu yescrypt/yescrypt.cu \
-			  rinhash/rinhash_scanhash.cpp rinhash/rinhash.cu
+			  rinhash/rinhash_scanhash.cpp rinhash/rinhash.cu evohash/evohash.cu
 			  
 # scrypt
 ccminer_SOURCES += scrypt.cpp scrypt-jane.cpp \

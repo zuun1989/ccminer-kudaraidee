@@ -274,6 +274,7 @@ Options:\n\
 			decred		Decred Blake256\n\
 			deep		Deepcoin\n\
 			equihash	Zcash Equihash\n\
+			evohash		EvoAI \n\
 			dmd-gr		Diamond-Groestl\n\
 			fresh		Freshcoin (shavite 80)\n\
 			fugue256	Fuguecoin\n\
@@ -1827,6 +1828,7 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_X16RV2:
 		case ALGO_X16S:
 		case ALGO_X21S:
+		case ALGO_EVOHASH:
 		case ALGO_RINHASH:
 			work_set_target(work, sctx->job.diff / (256.0 * opt_difficulty));
 			break;
@@ -1847,7 +1849,7 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		// store for api stats
 		stratum_diff = sctx->job.diff;
 		if (opt_showdiff && work->targetdiff != stratum_diff)
-			snprintf(sdiff, 32, " (%.5f)", work->targetdiff);
+			snprintf(sdiff, 32, " (%.6f)", work->targetdiff);
 		applog(LOG_WARNING, "Stratum difficulty set to %g%s", stratum_diff, sdiff);
 	}
 
@@ -2494,6 +2496,9 @@ static void *miner_thread(void *userdata)
 			break;
 		case ALGO_DEEP:
 			rc = scanhash_deep(thr_id, &work, max_nonce, &hashes_done);
+			break;
+		case ALGO_EVOHASH:
+			rc = scanhash_evohash(thr_id, &work, max_nonce, &hashes_done);
 			break;
 		case ALGO_FRESH:
 			rc = scanhash_fresh(thr_id, &work, max_nonce, &hashes_done);

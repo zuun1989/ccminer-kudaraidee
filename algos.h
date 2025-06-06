@@ -22,6 +22,7 @@ enum sha_algos {
 	ALGO_DECRED,
 	ALGO_DMD_GR,
 	ALGO_EQUIHASH,
+	ALGO_EVOHASH,
 	ALGO_FRESH,
 	ALGO_FUGUE256,		/* Fugue256 */
 	ALGO_GOSTCOIN,
@@ -117,6 +118,7 @@ static const char *algo_names[] = {
 	"decred",
 	"dmd-gr",
 	"equihash",
+	"evohash",
 	"fresh",
 	"fugue256",
 	"gostcoin",

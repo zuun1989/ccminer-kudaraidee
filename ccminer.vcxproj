@@ -586,6 +586,7 @@
       <MaxRegCount>128</MaxRegCount>
     </CudaCompile>
     <CudaCompile Include="Algo256\cuda_skein256.cu" />
+    <CudaCompile Include="evohash\evohash.cu" />
     <CudaCompile Include="lbry\cuda_sha256_lbry.cu" />
     <CudaCompile Include="lbry\cuda_sha512_lbry.cu" />
     <CudaCompile Include="lbry\cuda_lbry_merged.cu" />
