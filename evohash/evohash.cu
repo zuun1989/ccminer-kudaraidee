@@ -52,102 +52,358 @@ extern "C" void evohash(void *state, const void *input)
 	unsigned char hashA[64] = { 0 };
 	unsigned char hashB[64] = { 0 };
 
+	// CUBE512-80
 	sph_cubehash512_init(&ctx_cubehash);
 	sph_cubehash512(&ctx_cubehash, input, 80);
-	sph_cubehash512_close(&ctx_cubehash, (void*)hash);
+	sph_cubehash512_close(&ctx_cubehash, hash);
 
+	// BMW512
 	sph_bmw512_init(&ctx_bmw);
-	sph_bmw512(&ctx_bmw, (const void*) hash, 64);
+	sph_bmw512(&ctx_bmw, hash, 64);
 	sph_bmw512_close(&ctx_bmw, hashB);
 
-	LYRA2(&hashA[ 0], 32, &hashB[ 0], 32, &hashB[ 0], 32, 1, 8, 8);
+	// LYRA2
+	LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
 	LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
 
-	sph_groestl512_init(&ctx_groestl);
-	sph_groestl512 (&ctx_groestl, hashA, 64);
-	sph_groestl512_close(&ctx_groestl, hash);
-
+	// Hamsi512
 	sph_hamsi512_init(&ctx_hamsi);
-	sph_hamsi512(&ctx_hamsi, (const void*) hash, 64);
-	sph_hamsi512_close(&ctx_hamsi, hashB);
+	sph_hamsi512(&ctx_hamsi, hashA, 64);
+	sph_hamsi512_close(&ctx_hamsi, hash);
 
-	LYRA2(&hashA[ 0], 32, &hashB[ 0], 32, &hashB[ 0], 32, 1, 8, 8);
-	LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
-
+	// Fugue512
 	sph_fugue512_init(&ctx_fugue);
-	sph_fugue512(&ctx_fugue, (const void*) hashA, 64);
-	sph_fugue512_close(&ctx_fugue, hash);
+	sph_fugue512(&ctx_fugue, hash, 64);
+	sph_fugue512_close(&ctx_fugue, hashB);
 
+	// LYRA2
+	LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+	LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+	// SIMD512
 	sph_simd512_init(&ctx_simd);
-	sph_simd512(&ctx_simd, (const void*) hash, 64);
-	sph_simd512_close(&ctx_simd, hashB);
+	sph_simd512(&ctx_simd, hashA, 64);
+	sph_simd512_close(&ctx_simd, hash);
 
-	LYRA2(&hashA[ 0], 32, &hashB[ 0], 32, &hashB[ 0], 32, 1, 8, 8);
-	LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
-
+	// Echo512
 	sph_echo512_init(&ctx_echo);
-	sph_echo512(&ctx_echo, (const void*) hashA, 64);
-	sph_echo512_close(&ctx_echo, hash);
+	sph_echo512(&ctx_echo, hash, 64);
+	sph_echo512_close(&ctx_echo, hashB);
 
+	// LYRA2
+	LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+	LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+	// CubeHash512
 	sph_cubehash512_init(&ctx_cubehash);
-	sph_cubehash512(&ctx_cubehash, (const void*) hash, 64);
-	sph_cubehash512_close(&ctx_cubehash, hashB);
+	sph_cubehash512(&ctx_cubehash, hashA, 64);
+	sph_cubehash512_close(&ctx_cubehash, hash);
 
-	LYRA2(&hashA[ 0], 32, &hashB[ 0], 32, &hashB[ 0], 32, 1, 8, 8);
-	LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
-
+	// Shavite512
 	sph_shavite512_init(&ctx_shavite);
-	sph_shavite512(&ctx_shavite, (const void*) hashA, 64);
-	sph_shavite512_close(&ctx_shavite, hash);
+	sph_shavite512(&ctx_shavite, hash, 64);
+	sph_shavite512_close(&ctx_shavite, hashB);
 
-	sph_luffa512_init(&ctx_luffa);
-	sph_luffa512(&ctx_luffa, (const void*) hash, 64);
-	sph_luffa512_close (&ctx_luffa, hashB);
-
-	LYRA2(&hashA[ 0], 32, &hashB[ 0], 32, &hashB[ 0], 32, 1, 8, 8);
+	// LYRA2
+	LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
 	LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
 
-	sph_shavite512_init(&ctx_shavite);
-	sph_shavite512(&ctx_shavite, (const void*) hashA, 64);
-	sph_shavite512_close(&ctx_shavite, hash);
+    // Luffa512
+    sph_luffa512_init(&ctx_luffa);
+    sph_luffa512(&ctx_luffa, hashA, 64);
+    sph_luffa512_close(&ctx_luffa, hashB);
 
-	sph_luffa512_init(&ctx_luffa);
-	sph_luffa512(&ctx_luffa, (const void*) hash, 64);
-	sph_luffa512_close (&ctx_luffa, hashB);
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
 
-	LYRA2(&hashA[ 0], 32, &hashB[ 0], 32, &hashB[ 0], 32, 1, 8, 8);
-	LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+    // CubeHash512
+    sph_cubehash512_init(&ctx_cubehash);
+    sph_cubehash512(&ctx_cubehash, hashA, 64);
+    sph_cubehash512_close(&ctx_cubehash, hash);
 
-	sph_whirlpool_init(&ctx_whirlpool);
-	sph_whirlpool (&ctx_whirlpool, (const void*) hashA, 64);
-	sph_whirlpool_close(&ctx_whirlpool, hash);
+    // Shavite512
+    sph_shavite512_init(&ctx_shavite);
+    sph_shavite512(&ctx_shavite, hash, 64);
+    sph_shavite512_close(&ctx_shavite, hashB);
 
-	sph_shabal512_init(&ctx_shabal);
-	sph_shabal512(&ctx_shabal, (const void*) hash, 64);
-	sph_shabal512_close(&ctx_shabal, hashB);
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
 
-	LYRA2(&hashA[ 0], 32, &hashB[ 0], 32, &hashB[ 0], 32, 1, 8, 8);
-	LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+    // Luffa512
+    sph_luffa512_init(&ctx_luffa);
+    sph_luffa512(&ctx_luffa, hashA, 64);
+    sph_luffa512_close(&ctx_luffa, hashB);
 
-	sph_jh512_init(&ctx_jh);
-	sph_jh512(&ctx_jh, (const void*) hashA, 64);
-	sph_jh512_close(&ctx_jh, hash);
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
 
-	sph_keccak512_init(&ctx_keccak);
-	sph_keccak512 (&ctx_keccak, hash, 64);
-	sph_keccak512_close(&ctx_keccak, hashB);
+    // Hamsi512
+    sph_hamsi512_init(&ctx_hamsi);
+    sph_hamsi512(&ctx_hamsi, hashA, 64);
+    sph_hamsi512_close(&ctx_hamsi, hash);
 
-	LYRA2(&hashA[ 0], 32, &hashB[ 0], 32, &hashB[ 0], 32, 1, 8, 8);
-	LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+    // Fugue512
+    sph_fugue512_init(&ctx_fugue);
+    sph_fugue512(&ctx_fugue, hash, 64);
+    sph_fugue512_close(&ctx_fugue, hashB);
 
-	sph_skein512_init(&ctx_skein);
-	sph_skein512(&ctx_skein, (const void*)hashA, 64);
-	sph_skein512_close(&ctx_skein, (void*)hash);
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
 
-	for (int i=0; i<32; i++)
-		hash[i] ^= hash[i+32];
+    // SIMD512
+    sph_simd512_init(&ctx_simd);
+    sph_simd512(&ctx_simd, hashA, 64);
+    sph_simd512_close(&ctx_simd, hash);
 
-	memcpy(state, hash, 32);
+    // Echo512
+    sph_echo512_init(&ctx_echo);
+    sph_echo512(&ctx_echo, hash, 64);
+    sph_echo512_close(&ctx_echo, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // CubeHash512
+    sph_cubehash512_init(&ctx_cubehash);
+    sph_cubehash512(&ctx_cubehash, hashA, 64);
+    sph_cubehash512_close(&ctx_cubehash, hash);
+
+    // Shavite512
+    sph_shavite512_init(&ctx_shavite);
+    sph_shavite512(&ctx_shavite, hash, 64);
+    sph_shavite512_close(&ctx_shavite, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // Luffa512
+    sph_luffa512_init(&ctx_luffa);
+    sph_luffa512(&ctx_luffa, hashA, 64);
+    sph_luffa512_close(&ctx_luffa, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // CubeHash512
+    sph_cubehash512_init(&ctx_cubehash);
+    sph_cubehash512(&ctx_cubehash, hashA, 64);
+    sph_cubehash512_close(&ctx_cubehash, hash);
+
+    // Shavite512
+    sph_shavite512_init(&ctx_shavite);
+    sph_shavite512(&ctx_shavite, hash, 64);
+    sph_shavite512_close(&ctx_shavite, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // Luffa512
+    sph_luffa512_init(&ctx_luffa);
+    sph_luffa512(&ctx_luffa, hashA, 64);
+    sph_luffa512_close(&ctx_luffa, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // Hamsi512
+    sph_hamsi512_init(&ctx_hamsi);
+    sph_hamsi512(&ctx_hamsi, hashA, 64);
+    sph_hamsi512_close(&ctx_hamsi, hash);
+
+    // Fugue512
+    sph_fugue512_init(&ctx_fugue);
+    sph_fugue512(&ctx_fugue, hash, 64);
+    sph_fugue512_close(&ctx_fugue, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // SIMD512
+    sph_simd512_init(&ctx_simd);
+    sph_simd512(&ctx_simd, hashA, 64);
+    sph_simd512_close(&ctx_simd, hash);
+
+    // Echo512
+    sph_echo512_init(&ctx_echo);
+    sph_echo512(&ctx_echo, hash, 64);
+    sph_echo512_close(&ctx_echo, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // CubeHash512
+    sph_cubehash512_init(&ctx_cubehash);
+    sph_cubehash512(&ctx_cubehash, hashA, 64);
+    sph_cubehash512_close(&ctx_cubehash, hash);
+
+    // Shavite512
+    sph_shavite512_init(&ctx_shavite);
+    sph_shavite512(&ctx_shavite, hash, 64);
+    sph_shavite512_close(&ctx_shavite, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // Luffa512
+    sph_luffa512_init(&ctx_luffa);
+    sph_luffa512(&ctx_luffa, hashA, 64);
+    sph_luffa512_close(&ctx_luffa, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // CubeHash512
+    sph_cubehash512_init(&ctx_cubehash);
+    sph_cubehash512(&ctx_cubehash, hashA, 64);
+    sph_cubehash512_close(&ctx_cubehash, hash);
+
+    // Shavite512
+    sph_shavite512_init(&ctx_shavite);
+    sph_shavite512(&ctx_shavite, hash, 64);
+    sph_shavite512_close(&ctx_shavite, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // Luffa512
+    sph_luffa512_init(&ctx_luffa);
+    sph_luffa512(&ctx_luffa, hashA, 64);
+    sph_luffa512_close(&ctx_luffa, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // Hamsi512
+    sph_hamsi512_init(&ctx_hamsi);
+    sph_hamsi512(&ctx_hamsi, hashA, 64);
+    sph_hamsi512_close(&ctx_hamsi, hash);
+
+    // Fugue512
+    sph_fugue512_init(&ctx_fugue);
+    sph_fugue512(&ctx_fugue, hash, 64);
+    sph_fugue512_close(&ctx_fugue, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // SIMD512
+    sph_simd512_init(&ctx_simd);
+    sph_simd512(&ctx_simd, hashA, 64);
+    sph_simd512_close(&ctx_simd, hash);
+
+    // Echo512
+    sph_echo512_init(&ctx_echo);
+    sph_echo512(&ctx_echo, hash, 64);
+    sph_echo512_close(&ctx_echo, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // CubeHash512
+    sph_cubehash512_init(&ctx_cubehash);
+    sph_cubehash512(&ctx_cubehash, hashA, 64);
+    sph_cubehash512_close(&ctx_cubehash, hash);
+
+    // Shavite512
+    sph_shavite512_init(&ctx_shavite);
+    sph_shavite512(&ctx_shavite, hash, 64);
+    sph_shavite512_close(&ctx_shavite, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // Luffa512
+    sph_luffa512_init(&ctx_luffa);
+    sph_luffa512(&ctx_luffa, hashA, 64);
+    sph_luffa512_close(&ctx_luffa, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // CubeHash512
+    sph_cubehash512_init(&ctx_cubehash);
+    sph_cubehash512(&ctx_cubehash, hashA, 64);
+    sph_cubehash512_close(&ctx_cubehash, hash);
+
+    // Shavite512
+    sph_shavite512_init(&ctx_shavite);
+    sph_shavite512(&ctx_shavite, hash, 64);
+    sph_shavite512_close(&ctx_shavite, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // Luffa512
+    sph_luffa512_init(&ctx_luffa);
+    sph_luffa512(&ctx_luffa, hashA, 64);
+    sph_luffa512_close(&ctx_luffa, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // Whirlpool
+    sph_whirlpool_init(&ctx_whirlpool);
+    sph_whirlpool(&ctx_whirlpool, hashA, 64);
+    sph_whirlpool_close(&ctx_whirlpool, hash);
+
+    // Shabal512
+    sph_shabal512_init(&ctx_shabal);
+    sph_shabal512(&ctx_shabal, hash, 64);
+    sph_shabal512_close(&ctx_shabal, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // JH512
+    sph_jh512_init(&ctx_jh);
+    sph_jh512(&ctx_jh, hashA, 64);
+    sph_jh512_close(&ctx_jh, hash);
+
+    // Keccak512
+    sph_keccak512_init(&ctx_keccak);
+    sph_keccak512(&ctx_keccak, hash, 64);
+    sph_keccak512_close(&ctx_keccak, hashB);
+
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+
+    // Skein512
+    sph_skein512_init(&ctx_skein);
+    sph_skein512(&ctx_skein, hashA, 64);
+    sph_skein512_close(&ctx_skein, hash);
+
+    // Groestl512
+    sph_groestl512_init(&ctx_groestl);
+    sph_groestl512(&ctx_groestl, hash, 64);
+    sph_groestl512_close(&ctx_groestl, hash);
+
+    for (int i=0; i<32; i++)
+        hash[i] ^= hash[i+32];
+
+    memcpy(state, hash, 32);
 }
 
 static bool init[MAX_GPUS] = { 0 };
@@ -230,36 +486,94 @@ extern "C" int scanhash_evohash(int thr_id, struct work* work, uint32_t max_nonc
 		cubehash512_cuda_hash_80(thr_id, throughput, pdata[19], d_hash_512[thr_id]); order++;
 		quark_bmw512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
 		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		quark_groestl512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
 		x13_hamsi512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
 		x13_fugue512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
 		x11_simd512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
 		if (use_compat_kernels[thr_id])
 			x11_echo512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
 		else {
 			x16_echo512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
 		}
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
 		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
 		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
 		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
 		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
+		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x13_hamsi512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		x13_fugue512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_simd512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		if (use_compat_kernels[thr_id])
+			x11_echo512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		else {
+			x16_echo512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
+		}
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
+		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
+		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x13_hamsi512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		x13_fugue512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_simd512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		if (use_compat_kernels[thr_id])
+			x11_echo512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		else {
+			x16_echo512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
+		}
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
+		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
+		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x13_hamsi512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		x13_fugue512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_simd512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		if (use_compat_kernels[thr_id])
+			x11_echo512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		else {
+			x16_echo512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
+		}
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
+		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
+		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
+		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
 		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
 		x15_whirlpool_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
 		x14_shabal512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
 		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
 		quark_jh512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
 		quark_keccak512_cpu_hash_64(thr_id, throughput, NULL, d_hash_512[thr_id]); order++;
 		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
 		quark_skein512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		quark_groestl512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
 
 		*hashes_done = pdata[19] - first_nonce + throughput;
 
