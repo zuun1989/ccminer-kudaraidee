@@ -52,61 +52,61 @@ extern "C" void evohash(void *state, const void *input)
 	unsigned char hashA[64] = { 0 };
 	unsigned char hashB[64] = { 0 };
 
-	// CUBE512-80
-	sph_cubehash512_init(&ctx_cubehash);
-	sph_cubehash512(&ctx_cubehash, input, 80);
-	sph_cubehash512_close(&ctx_cubehash, hash);
+    // CUBE512-80
+    sph_cubehash512_init(&ctx_cubehash);
+    sph_cubehash512(&ctx_cubehash, input, 80);
+    sph_cubehash512_close(&ctx_cubehash, hash);
 
-	// BMW512
-	sph_bmw512_init(&ctx_bmw);
-	sph_bmw512(&ctx_bmw, hash, 64);
-	sph_bmw512_close(&ctx_bmw, hashB);
+    // BMW512
+    sph_bmw512_init(&ctx_bmw);
+    sph_bmw512(&ctx_bmw, hash, 64);
+    sph_bmw512_close(&ctx_bmw, hashB);
 
-	// LYRA2
-	LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
-	LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
 
-	// Hamsi512
-	sph_hamsi512_init(&ctx_hamsi);
-	sph_hamsi512(&ctx_hamsi, hashA, 64);
-	sph_hamsi512_close(&ctx_hamsi, hash);
+    // Hamsi512
+    sph_hamsi512_init(&ctx_hamsi);
+    sph_hamsi512(&ctx_hamsi, hashA, 64);
+    sph_hamsi512_close(&ctx_hamsi, hash);
 
-	// Fugue512
-	sph_fugue512_init(&ctx_fugue);
-	sph_fugue512(&ctx_fugue, hash, 64);
-	sph_fugue512_close(&ctx_fugue, hashB);
+    // Fugue512
+    sph_fugue512_init(&ctx_fugue);
+    sph_fugue512(&ctx_fugue, hash, 64);
+    sph_fugue512_close(&ctx_fugue, hashB);
 
-	// LYRA2
-	LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
-	LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
 
-	// SIMD512
-	sph_simd512_init(&ctx_simd);
-	sph_simd512(&ctx_simd, hashA, 64);
-	sph_simd512_close(&ctx_simd, hash);
+    // SIMD512
+    sph_simd512_init(&ctx_simd);
+    sph_simd512(&ctx_simd, hashA, 64);
+    sph_simd512_close(&ctx_simd, hash);
 
-	// Echo512
-	sph_echo512_init(&ctx_echo);
-	sph_echo512(&ctx_echo, hash, 64);
-	sph_echo512_close(&ctx_echo, hashB);
+    // Echo512
+    sph_echo512_init(&ctx_echo);
+    sph_echo512(&ctx_echo, hash, 64);
+    sph_echo512_close(&ctx_echo, hashB);
 
-	// LYRA2
-	LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
-	LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
 
-	// CubeHash512
-	sph_cubehash512_init(&ctx_cubehash);
-	sph_cubehash512(&ctx_cubehash, hashA, 64);
-	sph_cubehash512_close(&ctx_cubehash, hash);
+    // CubeHash512
+    sph_cubehash512_init(&ctx_cubehash);
+    sph_cubehash512(&ctx_cubehash, hashA, 64);
+    sph_cubehash512_close(&ctx_cubehash, hash);
 
-	// Shavite512
-	sph_shavite512_init(&ctx_shavite);
-	sph_shavite512(&ctx_shavite, hash, 64);
-	sph_shavite512_close(&ctx_shavite, hashB);
+    // Shavite512
+    sph_shavite512_init(&ctx_shavite);
+    sph_shavite512(&ctx_shavite, hash, 64);
+    sph_shavite512_close(&ctx_shavite, hashB);
 
-	// LYRA2
-	LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
-	LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
+    // LYRA2
+    LYRA2(&hashA[0], 32, &hashB[0], 32, &hashB[0], 32, 1, 8, 8);
+    LYRA2(&hashA[32], 32, &hashB[32], 32, &hashB[32], 32, 1, 8, 8);
 
     // Luffa512
     sph_luffa512_init(&ctx_luffa);
@@ -417,14 +417,8 @@ extern "C" int scanhash_evohash(int thr_id, struct work* work, uint32_t max_nonc
 
 	const uint32_t first_nonce = pdata[19];
 	const int dev_id = device_map[thr_id];
-
-	int intensity = (device_sm[dev_id] > 500 && !is_windows()) ? 17 : 16;
-	if (device_sm[dev_id] == 500) intensity = 15;
-	if (device_sm[dev_id] == 600) intensity = 17;
-
-	uint32_t throughput = cuda_default_throughput(thr_id, 1U << intensity);
-	if (init[thr_id]) throughput = min(throughput, max_nonce - first_nonce);
-	if (init[thr_id]) throughput = max(throughput & 0xffffff80, 128); // for shared mem
+	
+	uint32_t throughput =  cuda_default_throughput(thr_id, 1U << 18); 
 
 	if (opt_benchmark)
 		ptarget[7] = 0x00ff;
@@ -449,13 +443,8 @@ extern "C" int scanhash_evohash(int thr_id, struct work* work, uint32_t max_nonc
 
 		use_compat_kernels[thr_id] = (cuda_arch[dev_id] < 500);
 		if (use_compat_kernels[thr_id])
-		{
 			x11_echo512_cpu_init(thr_id, throughput);
-		}
-		else
-		{
-			x16_echo512_cuda_init(thr_id, throughput);
-		}
+
 		quark_groestl512_cpu_init(thr_id, throughput);
 		quark_bmw512_cpu_init(thr_id, throughput);
 		quark_skein512_cpu_init(thr_id, throughput);
@@ -475,11 +464,13 @@ extern "C" int scanhash_evohash(int thr_id, struct work* work, uint32_t max_nonc
 	}
 
 	uint32_t endiandata[32];
-	for (int k=0; k < 19; k++)
+	for (int k=0; k < 32; k++)
 		be32enc(&endiandata[k], pdata[k]);
 
 	cubehash512_setBlock_80(thr_id, endiandata);
 	cuda_check_cpu_setTarget(ptarget);
+
+	int warn = 0;
 
 	do {
 		int order = 0;
@@ -586,7 +577,8 @@ extern "C" int scanhash_evohash(int thr_id, struct work* work, uint32_t max_nonc
 			be32enc(&endiandata[19], work->nonces[0]);
 			evohash(vhash, endiandata);
 
-			if (vhash[7] <= Htarg && fulltest(vhash, ptarget)) {
+			if (vhash[7] <= Htarg && fulltest(vhash, ptarget)) 
+			{
 				work->valid_nonces = 1;
 				work->nonces[1] = cuda_check_hash_suppl(thr_id, throughput, pdata[19], d_hash_512[thr_id], 1);
 				work_set_target_ratio(work, vhash);
@@ -601,12 +593,21 @@ extern "C" int scanhash_evohash(int thr_id, struct work* work, uint32_t max_nonc
 				}
 				return work->valid_nonces;
 			}
-			else if (vhash[7] > Htarg) {
+			else if (vhash[7] > Htarg) 
+			{
 				gpu_increment_reject(thr_id);
-				if (!opt_quiet)
-				gpulog(LOG_WARNING, thr_id, "result for %08x does not validate on CPU!", work->nonces[0]);
-				pdata[19] = work->nonces[0] + 1;
-				continue;
+				if (!warn) 
+				{
+					warn++;
+					pdata[19] = work->nonces[0] + 1;
+					continue;
+				} 
+				else 
+				{
+					if (!opt_quiet)
+					gpulog(LOG_WARNING, thr_id, "result for %08x does not validate on CPU!", work->nonces[0]);
+					warn = 0;
+				}
 			}
 		}
 
