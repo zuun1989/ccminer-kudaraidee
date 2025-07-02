@@ -25,11 +25,11 @@ extern "C" {
 #include "x16/cuda_x16.h"
 
 static uint64_t* d_matrix[MAX_GPUS];
-static uint32_t* d_hash_512[MAX_GPUS];
+static uint32_t* d_hash[MAX_GPUS];
 static uint64_t* d_hash_256[MAX_GPUS];
 
 extern void lyra2_cpu_init(int thr_id, uint32_t threads, uint64_t *d_matrix);
-extern void lyra2_cuda_hash_64(int thr_id, const uint32_t threads, uint64_t* d_hash_256, uint32_t* d_hash_512, bool gtx750ti);
+extern void lyra2_cuda_hash_64(int thr_id, const uint32_t threads, uint64_t* d_hash_256, uint32_t* d_hash, bool gtx750ti);
 
 extern "C" void evohash(void *state, const void *input)
 {
@@ -407,7 +407,6 @@ extern "C" void evohash(void *state, const void *input)
 }
 
 static bool init[MAX_GPUS] = { 0 };
-static bool use_compat_kernels[MAX_GPUS] = { 0 };
 static __thread bool gtx750ti = false;
 
 extern "C" int scanhash_evohash(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done)
@@ -421,7 +420,7 @@ extern "C" int scanhash_evohash(int thr_id, struct work* work, uint32_t max_nonc
 	uint32_t throughput =  cuda_default_throughput(thr_id, 1U << 18); 
 
 	if (opt_benchmark)
-		ptarget[7] = 0x00ff;
+		ptarget[7] = 0x00FF;
 		
 	if (!init[thr_id])
 	{
@@ -433,17 +432,14 @@ extern "C" int scanhash_evohash(int thr_id, struct work* work, uint32_t max_nonc
 		gpulog(LOG_INFO, thr_id, "Intensity set to %g, %u cuda threads", throughput2intensity(throughput), throughput);
 		
 		cuda_get_arch(thr_id);
-		use_compat_kernels[thr_id] = (cuda_arch[dev_id] < 500);
 		gtx750ti = (strstr(device_name[dev_id], "GTX 750 Ti") != NULL);
 
 		size_t matrix_sz = device_sm[dev_id] > 500 ? sizeof(uint64_t) * 16 : sizeof(uint64_t) * 8 * 8 * 3 * 4;
 		CUDA_CALL_OR_RET_X(cudaMalloc(&d_matrix[thr_id], matrix_sz * throughput), 0);
 		CUDA_CALL_OR_RET_X(cudaMalloc(&d_hash_256[thr_id], (size_t)32 * throughput), 0);
-		CUDA_CALL_OR_RET_X(cudaMalloc(&d_hash_512[thr_id], (size_t)64 * throughput), 0);
+		CUDA_CALL_OR_RET_X(cudaMalloc(&d_hash[thr_id], (size_t)64 * throughput), 0);
 
-		use_compat_kernels[thr_id] = (cuda_arch[dev_id] < 500);
-		if (use_compat_kernels[thr_id])
-			x11_echo512_cpu_init(thr_id, throughput);
+		x11_echo512_cpu_init(thr_id, throughput);
 
 		quark_groestl512_cpu_init(thr_id, throughput);
 		quark_bmw512_cpu_init(thr_id, throughput);
@@ -463,112 +459,94 @@ extern "C" int scanhash_evohash(int thr_id, struct work* work, uint32_t max_nonc
 		init[thr_id] = true;
 	}
 
-	uint32_t endiandata[32];
-	for (int k=0; k < 32; k++)
+	uint32_t endiandata[20];
+	for (int k=0; k < 19; k++)
 		be32enc(&endiandata[k], pdata[k]);
 
 	cubehash512_setBlock_80(thr_id, endiandata);
 	cuda_check_cpu_setTarget(ptarget);
 
-	int warn = 0;
-
 	do {
 		int order = 0;
-		cubehash512_cuda_hash_80(thr_id, throughput, pdata[19], d_hash_512[thr_id]); order++;
-		quark_bmw512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x13_hamsi512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		x13_fugue512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_simd512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		if (use_compat_kernels[thr_id])
-			x11_echo512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		else {
-			x16_echo512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
-		}
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
-		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
-		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x13_hamsi512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		x13_fugue512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_simd512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		if (use_compat_kernels[thr_id])
-			x11_echo512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		else {
-			x16_echo512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
-		}
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
-		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
-		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x13_hamsi512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		x13_fugue512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_simd512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		if (use_compat_kernels[thr_id])
-			x11_echo512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		else {
-			x16_echo512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
-		}
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
-		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
-		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x13_hamsi512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		x13_fugue512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_simd512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		if (use_compat_kernels[thr_id])
-			x11_echo512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		else {
-			x16_echo512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
-		}
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
-		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash_512[thr_id]); order++;
-		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		x15_whirlpool_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		x14_shabal512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		quark_jh512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		quark_keccak512_cpu_hash_64(thr_id, throughput, NULL, d_hash_512[thr_id]); order++;
-		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash_512[thr_id], gtx750ti); order++;
-		quark_skein512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
-		quark_groestl512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash_512[thr_id], order++);
+		cubehash512_cuda_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id]); order++;
+		quark_bmw512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x13_hamsi512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		x13_fugue512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_simd512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		x11_echo512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash[thr_id]); order++;
+		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash[thr_id]); order++;
+		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x13_hamsi512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		x13_fugue512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_simd512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		x11_echo512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash[thr_id]); order++;
+		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash[thr_id]); order++;
+		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x13_hamsi512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		x13_fugue512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_simd512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		x11_echo512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash[thr_id]); order++;
+		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash[thr_id]); order++;
+		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x13_hamsi512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		x13_fugue512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_simd512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		x11_echo512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash[thr_id]); order++;
+		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_cubehash512_cpu_hash_64(thr_id, throughput, d_hash[thr_id]); order++;
+		x11_shavite512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x11_luffa512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		x15_whirlpool_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		x14_shabal512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		quark_jh512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		quark_keccak512_cpu_hash_64(thr_id, throughput, NULL, d_hash[thr_id]); order++;
+		lyra2_cuda_hash_64(thr_id, throughput, d_hash_256[thr_id], d_hash[thr_id], gtx750ti); order++;
+		quark_skein512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
+		quark_groestl512_cpu_hash_64(thr_id, throughput, pdata[19], NULL, d_hash[thr_id], order++);
 
 		*hashes_done = pdata[19] - first_nonce + throughput;
 
-		work->nonces[0] = cuda_check_hash(thr_id, throughput, pdata[19], d_hash_512[thr_id]);
+		work->nonces[0] = cuda_check_hash(thr_id, throughput, pdata[19], d_hash[thr_id]);
 		if (work->nonces[0] != UINT32_MAX)
 		{
 			const uint32_t Htarg = ptarget[7];
@@ -577,10 +555,9 @@ extern "C" int scanhash_evohash(int thr_id, struct work* work, uint32_t max_nonc
 			be32enc(&endiandata[19], work->nonces[0]);
 			evohash(vhash, endiandata);
 
-			if (vhash[7] <= Htarg && fulltest(vhash, ptarget)) 
-			{
+			if (vhash[7] <= Htarg && fulltest(vhash, ptarget)) {
 				work->valid_nonces = 1;
-				work->nonces[1] = cuda_check_hash_suppl(thr_id, throughput, pdata[19], d_hash_512[thr_id], 1);
+				work->nonces[1] = cuda_check_hash_suppl(thr_id, throughput, pdata[19], d_hash[thr_id], 1);
 				work_set_target_ratio(work, vhash);
 				if (work->nonces[1] != 0) {
 					be32enc(&endiandata[19], work->nonces[1]);
@@ -593,21 +570,12 @@ extern "C" int scanhash_evohash(int thr_id, struct work* work, uint32_t max_nonc
 				}
 				return work->valid_nonces;
 			}
-			else if (vhash[7] > Htarg) 
-			{
+			else if (vhash[7] > Htarg) {
 				gpu_increment_reject(thr_id);
-				if (!warn) 
-				{
-					warn++;
-					pdata[19] = work->nonces[0] + 1;
-					continue;
-				} 
-				else 
-				{
-					if (!opt_quiet)
-					gpulog(LOG_WARNING, thr_id, "result for %08x does not validate on CPU!", work->nonces[0]);
-					warn = 0;
-				}
+				if (!opt_quiet)
+				gpulog(LOG_WARNING, thr_id, "result for %08x does not validate on CPU!", work->nonces[0]);
+				pdata[19] = work->nonces[0] + 1;
+				continue;
 			}
 		}
 
@@ -633,7 +601,7 @@ extern "C" void free_evohash(int thr_id)
 
 	cudaDeviceSynchronize();
 
-	cudaFree(d_hash_512[thr_id]);
+	cudaFree(d_hash[thr_id]);
 	cudaFree(d_matrix[thr_id]);
 	cudaFree(d_hash_256[thr_id]);
 	
