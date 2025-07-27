@@ -8,14 +8,13 @@
 
 // Include shared device functions
 #include "rinhash_device.cuh"
+#include "blake3_device.cuh"
 #include "argon2d_device.cuh"
 #include "sha3-256.cu"
-#include "blake3_device.cuh"
-
 
 // External references to our CUDA implementations
-extern "C" void blake3_hash(const uint8_t* input, size_t input_len, uint8_t* output);
 extern "C" void argon2d_hash_rinhash(uint8_t* output, const uint8_t* input, size_t input_len);
+extern "C" void blake3_hash(const uint8_t* input, size_t input_len, uint8_t* output);
 extern "C" void sha3_256_hash(const uint8_t* input, size_t input_len, uint8_t* output);
 
 // Modified kernel to use device functions
