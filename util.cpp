@@ -1,2399 +1,1019 @@
-/*
- * Copyright 2010 Jeff Garzik
- * Copyright 2012-2014 pooler
- * Copyright 2014 ccminer team
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.  See COPYING for more details.
- */
+#ifndef __MINER_H__
+#define __MINER_H__
 
-//#define _GNU_SOURCE
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <ccminer-config.h>
 
-#include <iostream>
-#include <stdio.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <stdarg.h>
-#include <string.h>
+#ifdef __cplusplus
+#include <cstdbool> // C++ equivalent of stdbool.h
+#else
+#include <stdbool.h>
+#endif
 #include <inttypes.h>
-#include <unistd.h>
+#include <sys/time.h>
+#include <pthread.h>
 #include <jansson.h>
 #include <curl/curl.h>
-#include <sys/stat.h>
-#include <time.h>
-#ifdef WIN32
-#include "compat/winansi.h"
-#include <winsock2.h>
-#include <mstcpip.h>
-#else
-#include <errno.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
+
+#ifdef _MSC_VER
+#undef HAVE_ALLOCA_H
+#undef HAVE_SYSLOG_H
 #endif
-#include "miner.h"
-#include "elist.h"
 
-#include "crypto/xmr-rpc.h"
+#ifdef STDC_HEADERS
+# include <stdlib.h>
+# include <stddef.h>
+#else
+# ifdef HAVE_STDLIB_H
+#  include <stdlib.h>
+# endif
+#endif
 
-extern pthread_mutex_t stratum_sock_lock;
-extern pthread_mutex_t stratum_work_lock;
-extern bool opt_debug_diff;
+#ifdef HAVE_ALLOCA_H
+# include <alloca.h>
+#elif !defined alloca
+# ifdef __GNUC__
+#  define alloca __builtin_alloca
+# elif defined _AIX
+#  define alloca __alloca
+# elif defined _MSC_VER
+#  include <malloc.h>
+#  define alloca _alloca
+# elif !defined HAVE_ALLOCA
+void *alloca (size_t);
+# endif
+#endif
 
-bool opt_tracegpu = false;
+#include "compat.h"
 
-struct data_buffer {
-	void		*buf;
-	size_t		len;
-};
+#ifdef __INTELLISENSE__
+/* should be in stdint.h but... */
+typedef __int64 int64_t;
+typedef unsigned __int64 uint64_t;
+typedef __int32 int32_t;
+typedef unsigned __int32 uint32_t;
+typedef __int16 int16_t;
+typedef unsigned __int16 uint16_t;
+typedef __int16 int8_t;
+typedef unsigned __int16 uint8_t;
 
-struct upload_buffer {
-	const void	*buf;
-	size_t		len;
-	size_t		pos;
-};
+typedef unsigned __int32 time_t;
+typedef char *  va_list;
+#endif
 
-struct header_info {
-	char		*lp_path;
-	char		*reason;
-	char		*stratum_url;
-};
+#ifdef _MSC_VER
+#define THREAD __declspec(thread)
+#else
+#define THREAD __thread
+#endif
 
-struct tq_ent {
-	void			*data;
-	struct list_head	q_node;
-};
-
-struct thread_q {
-	struct list_head	q;
-
-	bool frozen;
-
-	pthread_mutex_t		mutex;
-	pthread_cond_t		cond;
-};
-
-void applog(int prio, const char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ > 0
+# undef _ALIGN
+# define _ALIGN(x) __align__(x)
+#elif _MSC_VER
+# define _ALIGN(x) __declspec(align(x))
+#else
+# define _ALIGN(x) __attribute__ ((aligned(x)))
+#endif
 
 #ifdef HAVE_SYSLOG_H
-	if (use_syslog) {
-		va_list ap2;
-		char *buf;
-		int len;
-
-		/* custom colors to syslog prio */
-		if (prio > LOG_DEBUG) {
-			switch (prio) {
-				case LOG_BLUE: prio = LOG_NOTICE; break;
-			}
-		}
-
-		va_copy(ap2, ap);
-		len = vsnprintf(NULL, 0, fmt, ap2) + 1;
-		va_end(ap2);
-		buf = (char*) alloca(len);
-		if (vsnprintf(buf, len, fmt, ap) >= 0)
-			syslog(prio, "%s", buf);
-	}
+#include <syslog.h>
+#define LOG_BLUE 0x10
+#define LOG_RAW  0x99
 #else
-	if (0) {}
+enum {
+	LOG_ERR,
+	LOG_WARNING,
+	LOG_NOTICE,
+	LOG_INFO,
+	LOG_DEBUG,
+	/* custom notices */
+	LOG_BLUE = 0x10,
+	LOG_RAW  = 0x99
+};
 #endif
-	else {
-		const char* color = "";
-		const time_t now = time(NULL);
-		char *f;
-		int len;
-		struct tm tm;
 
-		localtime_r(&now, &tm);
+typedef unsigned char uchar;
 
-		switch (prio) {
-			case LOG_ERR:     color = CL_RED; break;
-			case LOG_WARNING: color = CL_YLW; break;
-			case LOG_NOTICE:  color = CL_WHT; break;
-			case LOG_INFO:    color = ""; break;
-			case LOG_DEBUG:   color = CL_GRY; break;
-
-			case LOG_BLUE:
-				prio = LOG_NOTICE;
-				color = CL_CYN;
-				break;
-		}
-		if (!use_colors)
-			color = "";
-
-		len = 40 + (int) strlen(fmt) + 2;
-		f = (char*) alloca(len);
-		sprintf(f, "[%d-%02d-%02d %02d:%02d:%02d]%s %s%s\n",
-			tm.tm_year + 1900,
-			tm.tm_mon + 1,
-			tm.tm_mday,
-			tm.tm_hour,
-			tm.tm_min,
-			tm.tm_sec,
-			color,
-			fmt,
-			use_colors ? CL_N : ""
-		);
-		if (prio == LOG_RAW) {
-			// no time prefix, for ccminer -n
-			sprintf(f, "%s%s\n", fmt, CL_N);
-		}
-		pthread_mutex_lock(&applog_lock);
-		vfprintf(stdout, f, ap);	/* atomic write to stdout */
-		fflush(stdout);
-		pthread_mutex_unlock(&applog_lock);
-	}
-	va_end(ap);
-}
-
-extern int gpu_threads;
-// Use different prefix if multiple cpu threads per gpu
-// Also, auto hide LOG_DEBUG if --debug (-D) is not used
-void gpulog(int prio, int thr_id, const char *fmt, ...)
-{
-	char _ALIGN(128) pfmt[128];
-	char _ALIGN(128) line[256];
-	int len, dev_id = device_map[thr_id % MAX_GPUS];
-	va_list ap;
-
-	if (prio == LOG_DEBUG && !opt_debug)
-		return;
-
-	if (gpu_threads > 1)
-		len = snprintf(pfmt, 128, "GPU T%d: %s", thr_id, fmt);
-	else
-		len = snprintf(pfmt, 128, "GPU #%d: %s", dev_id, fmt);
-	pfmt[sizeof(pfmt)-1]='\0';
-
-	va_start(ap, fmt);
-
-	if (len && vsnprintf(line, sizeof(line), pfmt, ap)) {
-		line[sizeof(line)-1]='\0';
-		applog(prio, "%s", line);
-	} else {
-		fprintf(stderr, "%s OOM!\n", __func__);
-	}
-
-	va_end(ap);
-}
-
-/* Get default config.json path (system specific) */
-void get_defconfig_path(char *out, size_t bufsize, char *argv0)
-{
-	char *cmd = strdup(argv0);
-	char *dir = dirname(cmd);
-	const char *sep = strstr(dir, "\\") ? "\\" : "/";
-	struct stat info;
-#ifdef WIN32
-	snprintf(out, bufsize, "%s\\ccminer\\ccminer.conf\0", getenv("APPDATA"));
+#undef unlikely
+#undef likely
+#if defined(__GNUC__) && (__GNUC__ > 2) && defined(__OPTIMIZE__)
+#define unlikely(expr) (__builtin_expect(!!(expr), 0))
+#define likely(expr) (__builtin_expect(!!(expr), 1))
 #else
-	snprintf(out, bufsize, "%s\\.ccminer\\ccminer.conf", getenv("HOME"));
+#define unlikely(expr) (expr)
+#define likely(expr) (expr)
 #endif
-	if (dir && stat(out, &info) != 0) {
-		// binary folder if not present in user folder
-		snprintf(out, bufsize, "%s%sccminer.conf%s", dir, sep, "");
-	}
-	if (stat(out, &info) != 0) {
-		out[0] = '\0';
-		return;
-	}
-	out[bufsize - 1] = '\0';
-	free(cmd);
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+#endif
+
+#ifndef max
+# define max(a, b)  ((a) > (b) ? (a) : (b))
+#endif
+#ifndef min
+# define min(a, b)  ((a) < (b) ? (a) : (b))
+#endif
+
+#ifndef UINT32_MAX
+/* for gcc 4.4 */
+#define UINT32_MAX UINT_MAX
+#endif
+
+static inline bool is_windows(void) {
 #ifdef WIN32
-	if (dir) free(dir);
+        return 1;
+#else
+        return 0;
 #endif
 }
 
-void format_hashrate_unit(double hashrate, char *output, const char *unit)
-{
-	char prefix[2] = { 0, 0 };
-
-	if (hashrate < 10000) {
-		// nop
-	}
-	else if (hashrate < 1e7) {
-		prefix[0] = 'k';
-		hashrate *= 1e-3;
-	}
-	else if (hashrate < 1e10) {
-		prefix[0] = 'M';
-		hashrate *= 1e-6;
-	}
-	else if (hashrate < 1e13) {
-		prefix[0] = 'G';
-		hashrate *= 1e-9;
-	}
-	else {
-		prefix[0] = 'T';
-		hashrate *= 1e-12;
-	}
-
-	sprintf(output, "%.2f %s%s", hashrate, prefix, unit);
-}
-
-static void databuf_free(struct data_buffer *db)
-{
-	if (!db)
-		return;
-
-	free(db->buf);
-
-	memset(db, 0, sizeof(*db));
-}
-
-static size_t all_data_cb(const void *ptr, size_t size, size_t nmemb,
-			  void *user_data)
-{
-	struct data_buffer *db = (struct data_buffer *)user_data;
-	size_t len = size * nmemb;
-	size_t oldlen, newlen;
-	void *newmem;
-	static const uchar zero = 0;
-
-	oldlen = db->len;
-	newlen = oldlen + len;
-
-	newmem = realloc(db->buf, newlen + 1);
-	if (!newmem)
-		return 0;
-
-	db->buf = newmem;
-	db->len = newlen;
-	memcpy((char*)db->buf + oldlen, ptr, len);
-	memcpy((char*)db->buf + newlen, &zero, 1);	/* null terminate */
-
-	return len;
-}
-
-static size_t upload_data_cb(void *ptr, size_t size, size_t nmemb,
-			     void *user_data)
-{
-	struct upload_buffer *ub = (struct upload_buffer *)user_data;
-	unsigned int len = (unsigned int)(size * nmemb);
-
-	if (len > ub->len - ub->pos)
-		len = (unsigned int)(ub->len - ub->pos);
-
-	if (len) {
-		memcpy(ptr, (char*)ub->buf + ub->pos, len);
-		ub->pos += len;
-	}
-
-	return len;
-}
-
-#if LIBCURL_VERSION_NUM >= 0x071200
-static int seek_data_cb(void *user_data, curl_off_t offset, int origin)
-{
-	struct upload_buffer *ub = (struct upload_buffer *)user_data;
-	
-	switch (origin) {
-	case SEEK_SET:
-		ub->pos = (size_t)offset;
-		break;
-	case SEEK_CUR:
-		ub->pos += (size_t)offset;
-		break;
-	case SEEK_END:
-		ub->pos = ub->len + (size_t)offset;
-		break;
-	default:
-		return 1; /* CURL_SEEKFUNC_FAIL */
-	}
-
-	return 0; /* CURL_SEEKFUNC_OK */
-}
-#endif
-
-static size_t resp_hdr_cb(void *ptr, size_t size, size_t nmemb, void *user_data)
-{
-	struct header_info *hi = (struct header_info *)user_data;
-	size_t remlen, slen, ptrlen = size * nmemb;
-	char *rem, *val = NULL, *key = NULL;
-	void *tmp;
-
-	val = (char*)calloc(1, ptrlen);
-	key = (char*)calloc(1, ptrlen);
-	if (!key || !val)
-		goto out;
-
-	tmp = memchr(ptr, ':', ptrlen);
-	if (!tmp || (tmp == ptr))	/* skip empty keys / blanks */
-		goto out;
-	slen = (size_t)((char*)tmp - (char*)ptr);
-	if ((slen + 1) == ptrlen)	/* skip key w/ no value */
-		goto out;
-	memcpy(key, ptr, slen);		/* store & nul term key */
-	key[slen] = 0;
-
-	rem = (char*)ptr + slen + 1;		/* trim value's leading whitespace */
-	remlen = ptrlen - slen - 1;
-	while ((remlen > 0) && (isspace(*rem))) {
-		remlen--;
-		rem++;
-	}
-
-	memcpy(val, rem, remlen);	/* store value, trim trailing ws */
-	val[remlen] = 0;
-	while ((*val) && (isspace(val[strlen(val) - 1]))) {
-		val[strlen(val) - 1] = 0;
-	}
-	if (!*val)			/* skip blank value */
-		goto out;
-
-	if (!strcasecmp("X-Long-Polling", key)) {
-		hi->lp_path = val;	/* X-Mining-Extensions: longpoll */
-		val = NULL;
-	}
-
-	if (!strcasecmp("X-Reject-Reason", key)) {
-		hi->reason = val;	/* X-Mining-Extensions: reject-reason */
-		//applog(LOG_WARNING, "%s:%s", key, val);
-		val = NULL;
-	}
-
-	if (!strcasecmp("X-Stratum", key)) {
-		hi->stratum_url = val;	/* steal memory reference */
-		val = NULL;
-	}
-
-	if (!strcasecmp("X-Nonce-Range", key)) {
-		/* todo when available: X-Mining-Extensions: noncerange */
-	}
-out:
-	free(key);
-	free(val);
-	return ptrlen;
-}
-
-#if LIBCURL_VERSION_NUM >= 0x070f06
-static int sockopt_keepalive_cb(void *userdata, curl_socket_t fd,
-	curlsocktype purpose)
-{
-	int keepalive = 1;
-	int tcp_keepcnt = 3;
-	int tcp_keepidle = 50;
-	int tcp_keepintvl = 50;
-#ifdef WIN32
-	DWORD outputBytes;
-#endif
-
-#ifndef WIN32	
-	if (unlikely(setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive,
-		sizeof(keepalive))))
-		return 1;
-#ifdef __linux
-	if (unlikely(setsockopt(fd, SOL_TCP, TCP_KEEPCNT,
-		&tcp_keepcnt, sizeof(tcp_keepcnt))))
-		return 1;
-	if (unlikely(setsockopt(fd, SOL_TCP, TCP_KEEPIDLE,
-		&tcp_keepidle, sizeof(tcp_keepidle))))
-		return 1;
-	if (unlikely(setsockopt(fd, SOL_TCP, TCP_KEEPINTVL,
-		&tcp_keepintvl, sizeof(tcp_keepintvl))))
-		return 1;
-#endif /* __linux */
-#ifdef __APPLE_CC__
-	if (unlikely(setsockopt(fd, IPPROTO_TCP, TCP_KEEPALIVE,
-		&tcp_keepintvl, sizeof(tcp_keepintvl))))
-		return 1;
-#endif /* __APPLE_CC__ */
-#else /* WIN32 */
-	struct tcp_keepalive vals;
-	vals.onoff = 1;
-	vals.keepalivetime = tcp_keepidle * 1000;
-	vals.keepaliveinterval = tcp_keepintvl * 1000;	
-	if (unlikely(WSAIoctl(fd, SIO_KEEPALIVE_VALS, &vals, sizeof(vals),
-		NULL, 0, &outputBytes, NULL, NULL)))
-		return 1;
-#endif /* WIN32 */
-
+static inline bool is_x64(void) {
+#if defined(__x86_64__) || defined(_WIN64) || defined(__aarch64__)
+	return 1;
+#elif defined(__amd64__) || defined(__amd64) || defined(_M_X64) || defined(_M_IA64)
+	return 1;
+#else
 	return 0;
-}
 #endif
-
-/* For getwork (longpoll or wallet) - not stratum pools!
- * DO NOT USE DIRECTLY
- */
-static json_t *json_rpc_call(CURL *curl, const char *url,
-		      const char *userpass, const char *rpc_req,
-		      bool longpoll_scan, bool longpoll, bool keepalive, int *curl_err)
-{
-	json_t *val, *err_val, *res_val;
-	int rc;
-	struct data_buffer all_data = { 0 };
-	struct upload_buffer upload_data;
-	json_error_t err;
-	struct curl_slist *headers = NULL;
-	char *httpdata;
-	char len_hdr[64], hashrate_hdr[64];
-	char curl_err_str[CURL_ERROR_SIZE] = { 0 };
-	long timeout = longpoll ? opt_timeout : opt_timeout/2;
-	struct header_info hi = { 0 };
-	bool lp_scanning = longpoll_scan && !have_longpoll;
-
-	/* it is assumed that 'curl' is freshly [re]initialized at this pt */
-
-	if (opt_protocol)
-		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
-	curl_easy_setopt(curl, CURLOPT_URL, url);
-	if (opt_cert) {
-		curl_easy_setopt(curl, CURLOPT_CAINFO, opt_cert);
-		// ignore CN domain name, allow to move cert files
-		curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);
-	}
-	curl_easy_setopt(curl, CURLOPT_ENCODING, "");
-	curl_easy_setopt(curl, CURLOPT_FAILONERROR, 0);
-	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
-	curl_easy_setopt(curl, CURLOPT_TCP_NODELAY, 1);
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, all_data_cb);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &all_data);
-#if LIBCURL_VERSION_NUM >= 0x071200
-	curl_easy_setopt(curl, CURLOPT_SEEKFUNCTION, &seek_data_cb);
-	curl_easy_setopt(curl, CURLOPT_SEEKDATA, &upload_data);
-#endif
-	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curl_err_str);
-	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
-	curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
-	curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, resp_hdr_cb);
-	curl_easy_setopt(curl, CURLOPT_HEADERDATA, &hi);
-	if (opt_proxy)
-   {
-		curl_easy_setopt(curl, CURLOPT_PROXY, opt_proxy);
-		curl_easy_setopt(curl, CURLOPT_PROXYTYPE, opt_proxy_type);
-	}
-	if (userpass)
-   {
-		curl_easy_setopt(curl, CURLOPT_USERPWD, userpass);
-		curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-	}
-#if LIBCURL_VERSION_NUM >= 0x070f06
-	if (keepalive)
-		curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_keepalive_cb);
-#endif
-	curl_easy_setopt(curl, CURLOPT_POST, 1);
-
-	if (opt_protocol)
-		applog(LOG_DEBUG, "JSON protocol request:\n%s", rpc_req);
-
-	upload_data.buf = rpc_req;
-	upload_data.len = strlen(rpc_req);
-	upload_data.pos = 0;
-	sprintf(len_hdr, "Content-Length: %lu", (unsigned long) upload_data.len);
-	sprintf(hashrate_hdr, "X-Mining-Hashrate: %llu", (unsigned long long) global_hashrate);
-
-	headers = curl_slist_append(headers, "Content-Type: application/json");
-	headers = curl_slist_append(headers, len_hdr);
-	headers = curl_slist_append(headers, "User-Agent: " USER_AGENT);
-	headers = curl_slist_append(headers, "X-Mining-Extensions: longpoll noncerange reject-reason");
-	headers = curl_slist_append(headers, hashrate_hdr);
-	headers = curl_slist_append(headers, "Accept:"); /* disable Accept hdr*/
-	headers = curl_slist_append(headers, "Expect:"); /* disable Expect hdr*/
-
-	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
-	rc = curl_easy_perform(curl);
-	if (curl_err != NULL)
-		*curl_err = rc;
-	if (rc) {
-		if (!(longpoll && rc == CURLE_OPERATION_TIMEDOUT)) {
-			applog(LOG_ERR, "HTTP request failed: %s", curl_err_str);
-			goto err_out;
-		}
-	}
-
-	/* If X-Stratum was found, activate Stratum */
-	if (want_stratum && hi.stratum_url &&
-	    !strncasecmp(hi.stratum_url, "stratum+tcp://", 14)) {
-		have_stratum = true;
-		tq_push(thr_info[stratum_thr_id].q, hi.stratum_url);
-		hi.stratum_url = NULL;
-	}
-
-	/* If X-Long-Polling was found, activate long polling */
-	if (lp_scanning && hi.lp_path && !have_stratum) {
-		have_longpoll = true;
-		tq_push(thr_info[longpoll_thr_id].q, hi.lp_path);
-		hi.lp_path = NULL;
-	}
-
-	if (!all_data.buf || !all_data.len) {
-		if (!have_longpoll) // seems normal on longpoll timeout
-			applog(LOG_ERR, "Empty data received in json_rpc_call.");
-		goto err_out;
-	}
-
-	httpdata = (char*) all_data.buf;
-
-	if (*httpdata != '{' && *httpdata != '[') {
-		long errcode = 0;
-		CURLcode c = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &errcode);
-		if (c == CURLE_OK && errcode == 401) {
-			applog(LOG_ERR, "You are not authorized, check your login and password.");
-			goto err_out;
-		}
-	}
-
-	val = JSON_LOADS(httpdata, &err);
-	if (!val) {
-		applog(LOG_ERR, "JSON decode failed(%d): %s", err.line, err.text);
-		if (opt_protocol)
-			applog(LOG_DEBUG, "%s", httpdata);
-		goto err_out;
-	}
-
-	if (opt_protocol) {
-		char *s = json_dumps(val, JSON_INDENT(3));
-		applog(LOG_DEBUG, "JSON protocol response:\n%s\n", s);
-		free(s);
-	}
-
-	/* JSON-RPC valid response returns a non-null 'result',
-	 * and a null 'error'. */
-	res_val = json_object_get(val, "result");
-	err_val = json_object_get(val, "error");
-
-	if (!res_val || json_is_null(res_val) ||
-	    (err_val && !json_is_null(err_val))) {
-		char *s = NULL;
-
-		if (err_val) {
-			s = json_dumps(err_val, 0);
-			json_t *msg = json_object_get(err_val, "message");
-			json_t *err_code = json_object_get(err_val, "code");
-			if (curl_err && json_integer_value(err_code))
-				*curl_err = (int) json_integer_value(err_code);
-
-			if (json_is_string(msg)) {
-				free(s);
-				s = strdup(json_string_value(msg));
-				if (have_longpoll && s && !strcmp(s, "method not getwork")) {
-					json_decref(err_val);
-					free(s);
-					goto err_out;
-				}
-			}
-			json_decref(err_val);
-		}
-		else
-			s = strdup("(unknown reason)");
-
-		if (!curl_err || opt_debug)
-			applog(LOG_ERR, "JSON-RPC call failed: %s", s);
-
-		free(s);
-
-		goto err_out;
-	}
-
-	if (hi.reason)
-		json_object_set_new(val, "reject-reason", json_string(hi.reason));
-
-	databuf_free(&all_data);
-	curl_slist_free_all(headers);
-	curl_easy_reset(curl);
-	return val;
-
-err_out:
-	free(hi.lp_path);
-	free(hi.reason);
-	free(hi.stratum_url);
-	databuf_free(&all_data);
-	curl_slist_free_all(headers);
-	curl_easy_reset(curl);
-	return NULL;
 }
 
-/* getwork calls with pool pointer (wallet/longpoll pools) */
-json_t *json_rpc_call_pool(CURL *curl, struct pool_infos *pool, const char *req,
-	bool longpoll_scan, bool longpoll, int *curl_err)
-{
-	char userpass[512];
-	// todo, malloc and store that in pool array
-	snprintf(userpass, sizeof(userpass), "%s%c%s", pool->user,
-		strlen(pool->pass)?':':'\0', pool->pass);
-
-	return json_rpc_call(curl, pool->url, userpass, req, longpoll_scan, false, false, curl_err);
-}
-
-/* called only from longpoll thread, we have the lp_url */
-json_t *json_rpc_longpoll(CURL *curl, char *lp_url, struct pool_infos *pool, const char *req, int *curl_err)
-{
-	char userpass[512];
-	snprintf(userpass, sizeof(userpass), "%s%c%s", pool->user,
-		strlen(pool->pass)?':':'\0', pool->pass);
-
-	// on pool rotate by time-limit, this keepalive can be a problem
-	bool keepalive = pool->time_limit == 0 || pool->time_limit > opt_timeout;
-
-	return json_rpc_call(curl, lp_url, userpass, req, false, true, keepalive, curl_err);
-}
-
-json_t *json_load_url(char* cfg_url, json_error_t *err)
-{
-	char err_str[CURL_ERROR_SIZE] = { 0 };
-	struct data_buffer all_data = { 0 };
-	int rc = 0; json_t *cfg = NULL;
-	CURL *curl = curl_easy_init();
-	if (unlikely(!curl)) {
-		applog(LOG_ERR, "Remote config init failed!");
-		return NULL;
-	}
-	curl_easy_setopt(curl, CURLOPT_URL, cfg_url);
-	curl_easy_setopt(curl, CURLOPT_FRESH_CONNECT, 1);
-	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 15);
-	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, err_str);
-	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
-	curl_easy_setopt(curl, CURLOPT_TCP_NODELAY, 1);
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, all_data_cb);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &all_data);
-	if (opt_proxy) {
-		curl_easy_setopt(curl, CURLOPT_PROXY, opt_proxy);
-		curl_easy_setopt(curl, CURLOPT_PROXYTYPE, opt_proxy_type);
-	} else if (getenv("http_proxy")) {
-		if (getenv("all_proxy"))
-			curl_easy_setopt(curl, CURLOPT_PROXY, getenv("all_proxy"));
-		else if (getenv("ALL_PROXY"))
-			curl_easy_setopt(curl, CURLOPT_PROXY, getenv("ALL_PROXY"));
-		else
-			curl_easy_setopt(curl, CURLOPT_PROXY, "");
-	}
-	rc = curl_easy_perform(curl);
-	if (rc) {
-		applog(LOG_ERR, "Remote config read failed: %s", err_str);
-		goto err_out;
-	}
-	if (!all_data.buf || !all_data.len) {
-		applog(LOG_ERR, "Empty data received for config");
-		goto err_out;
-	}
-
-	cfg = JSON_LOADS((char*)all_data.buf, err);
-err_out:
-	curl_easy_cleanup(curl);
-	return cfg;
-}
-
-/**
- * Unlike malloc, calloc set the memory to zero
- */
-void *aligned_calloc(int size)
-{
-	const int ALIGN = 64; // cache line
-#ifdef _MSC_VER
-	void* res = _aligned_malloc(size, ALIGN);
-	memset(res, 0, size);
-	return res;
+#if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
+#define WANT_BUILTIN_BSWAP
 #else
-	void *mem = calloc(1, size+ALIGN+sizeof(uintptr_t));
-	void **ptr = (void**)((size_t)(((uintptr_t)(mem))+ALIGN+sizeof(uintptr_t)) & ~(ALIGN-1));
-	ptr[-1] = mem;
-	return ptr;
+#define bswap_32(x) ((((x) << 24) & 0xff000000u) | (((x) << 8) & 0x00ff0000u) \
+                   | (((x) >> 8) & 0x0000ff00u) | (((x) >> 24) & 0x000000ffu))
+#define bswap_64(x) (((uint64_t) bswap_32((uint32_t)((x) & 0xffffffffu)) << 32) \
+                   | (uint64_t) bswap_32((uint32_t)((x) >> 32)))
 #endif
-}
 
-void aligned_free(void *ptr)
+static inline uint32_t swab32(uint32_t v)
 {
-#ifdef _MSC_VER
-	_aligned_free(ptr);
+#ifdef WANT_BUILTIN_BSWAP
+	return __builtin_bswap32(v);
 #else
-	free(((void**)ptr)[-1]);
+	return bswap_32(v);
 #endif
 }
 
-void cbin2hex(char *out, const char *in, size_t len)
+static inline uint64_t swab64(uint64_t v)
 {
-	if (out) {
-		unsigned int i;
-		for (i = 0; i < len; i++)
-			sprintf(out + (i * 2), "%02x", (uint8_t)in[i]);
-	}
-}
-
-char *bin2hex(const uchar *in, size_t len)
-{
-	char *s = (char*)malloc((len * 2) + 1);
-	if (!s)
-		return NULL;
-
-	cbin2hex(s, (const char *) in, len);
-
-	return s;
-}
-
-bool hex2bin(void *output, const char *hexstr, size_t len)
-{
-	uchar *p = (uchar *) output;
-	char hex_byte[4];
-	char *ep;
-
-	hex_byte[2] = '\0';
-
-	while (*hexstr && len) {
-		if (!hexstr[1]) {
-			applog(LOG_ERR, "hex2bin str truncated");
-			return false;
-		}
-		hex_byte[0] = hexstr[0];
-		hex_byte[1] = hexstr[1];
-		*p = (uchar) strtol(hex_byte, &ep, 16);
-		if (*ep) {
-			applog(LOG_ERR, "hex2bin failed on '%s'", hex_byte);
-			return false;
-		}
-		p++;
-		hexstr += 2;
-		len--;
-	}
-
-	return (len == 0 && *hexstr == 0) ? true : false;
-}
-
-/* Subtract the `struct timeval' values X and Y,
-   storing the result in RESULT.
-   Return 1 if the difference is negative, otherwise 0.  */
-int timeval_subtract(struct timeval *result, struct timeval *x,
-	struct timeval *y)
-{
-	/* Perform the carry for the later subtraction by updating Y. */
-	if (x->tv_usec < y->tv_usec) {
-		int nsec = (y->tv_usec - x->tv_usec) / 1000000 + 1;
-		y->tv_usec -= 1000000 * nsec;
-		y->tv_sec += nsec;
-	}
-	if (x->tv_usec - y->tv_usec > 1000000) {
-		int nsec = (x->tv_usec - y->tv_usec) / 1000000;
-		y->tv_usec += 1000000 * nsec;
-		y->tv_sec -= nsec;
-	}
-
-	/* Compute the time remaining to wait.
-	 * `tv_usec' is certainly positive. */
-	result->tv_sec = x->tv_sec - y->tv_sec;
-	result->tv_usec = x->tv_usec - y->tv_usec;
-
-	/* Return 1 if result is negative. */
-	return x->tv_sec < y->tv_sec;
-}
-
-bool fulltest(const uint32_t *hash, const uint32_t *target)
-{
-	int i;
-	bool rc = true;
-	
-	for (i = 7; i >= 0; i--) {
-		if (hash[i] > target[i]) {
-			rc = false;
-			break;
-		}
-		if (hash[i] < target[i]) {
-			rc = true;
-			break;
-		}
-		if (hash[1] == target[1]) {
-			applog(LOG_NOTICE, "We found a close match!");
-		}
-	}
-
-	if ((!rc && opt_debug) || opt_debug_diff) {
-		uint32_t hash_be[8], target_be[8];
-		char *hash_str, *target_str;
-		
-		for (i = 0; i < 8; i++) {
-			be32enc(hash_be + i, hash[7 - i]);
-			be32enc(target_be + i, target[7 - i]);
-		}
-		hash_str = bin2hex((uchar *)hash_be, 32);
-		target_str = bin2hex((uchar *)target_be, 32);
-
-		applog(LOG_DEBUG, "DEBUG: %s\nHash:   %s\nTarget: %s",
-			rc ? "hash <= target"
-			   : CL_YLW "hash > target (false positive)" CL_N,
-			hash_str,
-			target_str);
-
-		free(hash_str);
-		free(target_str);
-	}
-
-	return rc;
-}
-
-// Only used by stratum pools
-void diff_to_target(uint32_t *target, double diff)
-{
-	uint64_t m;
-	int k;
-
-	for (k = 6; k > 0 && diff > 1.0; k--)
-		diff /= 4294967296.0;
-	m = (uint64_t)(4294901760.0 / diff);
-	if (m == 0 && k == 6)
-		memset(target, 0xff, 32);
-	else {
-		memset(target, 0, 32);
-		target[k] = (uint32_t)m;
-		target[k + 1] = (uint32_t)(m >> 32);
-	}
-}
-
-// Only used by stratum pools
-void work_set_target(struct work* work, double diff)
-{
-	diff_to_target(work->target, diff);
-	work->targetdiff = diff;
-}
-
-void rinhash_work_set_target(struct work* work, double diff) {
-    diff_to_target(work->target, diff / 20480.0);
-    work->targetdiff = diff;
-}
-
-// Only used by longpoll pools
-double target_to_diff(uint32_t* target)
-{
-	uchar* tgt = (uchar*) target;
-	uint64_t m =
-		(uint64_t)tgt[29] << 56 |
-		(uint64_t)tgt[28] << 48 |
-		(uint64_t)tgt[27] << 40 |
-		(uint64_t)tgt[26] << 32 |
-		(uint64_t)tgt[25] << 24 |
-		(uint64_t)tgt[24] << 16 |
-		(uint64_t)tgt[23] << 8  |
-		(uint64_t)tgt[22] << 0;
-
-	if (!m)
-		return 0.;
-	else
-		return (double)0x0000ffff00000000/m;
-}
-
-#ifdef WIN32
-#define socket_blocks() (WSAGetLastError() == WSAEWOULDBLOCK)
+#ifdef WANT_BUILTIN_BSWAP
+	return __builtin_bswap64(v);
 #else
-#define socket_blocks() (errno == EAGAIN || errno == EWOULDBLOCK)
+	return bswap_64(v);
+#endif
+}
+
+static inline void swab256(void *dest_p, const void *src_p)
+{
+	uint32_t *dest = (uint32_t *) dest_p;
+	const uint32_t *src = (const uint32_t *) src_p;
+
+	dest[0] = swab32(src[7]);
+	dest[1] = swab32(src[6]);
+	dest[2] = swab32(src[5]);
+	dest[3] = swab32(src[4]);
+	dest[4] = swab32(src[3]);
+	dest[5] = swab32(src[2]);
+	dest[6] = swab32(src[1]);
+	dest[7] = swab32(src[0]);
+}
+
+#ifdef HAVE_SYS_ENDIAN_H
+#include <sys/endian.h>
 #endif
 
-static bool send_line(struct stratum_ctx *sctx, char *s)
+#if !HAVE_DECL_BE32DEC
+static inline uint32_t be32dec(const void *pp)
 {
-	ssize_t len, sent = 0;
-	
-	len = (ssize_t)strlen(s);
-	s[len++] = '\n';
+	const uint8_t *p = (uint8_t const *)pp;
+	return ((uint32_t)(p[3]) + ((uint32_t)(p[2]) << 8) +
+	    ((uint32_t)(p[1]) << 16) + ((uint32_t)(p[0]) << 24));
+}
+#endif
 
-	while (len > 0) {
-		struct timeval timeout = {0, 0};
-		ssize_t n;
-		fd_set wd;
+#if !HAVE_DECL_LE32DEC
+static inline uint32_t le32dec(const void *pp)
+{
+	const uint8_t *p = (uint8_t const *)pp;
+	return ((uint32_t)(p[0]) + ((uint32_t)(p[1]) << 8) +
+	    ((uint32_t)(p[2]) << 16) + ((uint32_t)(p[3]) << 24));
+}
+#endif
 
-		FD_ZERO(&wd);
-		FD_SET(sctx->sock, &wd);
-		if (select((int) (sctx->sock + 1), NULL, &wd, NULL, &timeout) < 1)
-			return false;
-#if LIBCURL_VERSION_NUM >= 0x071802
-		CURLcode rc = curl_easy_send(sctx->curl, s + sent, len, (size_t *)&n);
-                 if (rc != CURLE_OK) {
-                         if (rc != CURLE_AGAIN)
+#if !HAVE_DECL_BE32ENC
+static inline void be32enc(void *pp, uint32_t x)
+{
+	uint8_t *p = (uint8_t *)pp;
+	p[3] = x & 0xff;
+	p[2] = (x >> 8) & 0xff;
+	p[1] = (x >> 16) & 0xff;
+	p[0] = (x >> 24) & 0xff;
+}
+#endif
+
+#if !HAVE_DECL_LE32ENC
+static inline void le32enc(void *pp, uint32_t x)
+{
+	uint8_t *p = (uint8_t *)pp;
+	p[0] = x & 0xff;
+	p[1] = (x >> 8) & 0xff;
+	p[2] = (x >> 16) & 0xff;
+	p[3] = (x >> 24) & 0xff;
+}
+#endif
+
+#if !HAVE_DECL_BE16DEC
+static inline uint16_t be16dec(const void *pp)
+{
+	const uint8_t *p = (uint8_t const *)pp;
+	return ((uint16_t)(p[1]) + ((uint16_t)(p[0]) << 8));
+}
+#endif
+
+#if !HAVE_DECL_BE16ENC
+static inline void be16enc(void *pp, uint16_t x)
+{
+	uint8_t *p = (uint8_t *)pp;
+	p[1] = x & 0xff;
+	p[0] = (x >> 8) & 0xff;
+}
+#endif
+
+#if !HAVE_DECL_LE16DEC
+static inline uint16_t le16dec(const void *pp)
+{
+	const uint8_t *p = (uint8_t const *)pp;
+	return ((uint16_t)(p[0]) + ((uint16_t)(p[1]) << 8));
+}
+#endif
+
+#if !HAVE_DECL_LE16ENC
+static inline void le16enc(void *pp, uint16_t x)
+{
+	uint8_t *p = (uint8_t *)pp;
+	p[0] = x & 0xff;
+	p[1] = (x >> 8) & 0xff;
+}
+#endif
+
+/* used for struct work */
+void *aligned_calloc(int size);
+void aligned_free(void *ptr);
+
+#if JANSSON_MAJOR_VERSION >= 2
+#define JSON_LOADS(str, err_ptr) json_loads((str), 0, (err_ptr))
+#define JSON_LOADF(str, err_ptr) json_load_file((str), 0, (err_ptr))
 #else
-		n = send(sock, s + sent, len, 0);
-		if (n < 0) {
-			if (!socket_blocks())
-#endif
-				return false;
-			n = 0;
-		}
-		sent += n;
-		len -= n;
-	}
-
-	return true;
-}
-
-bool stratum_send_line(struct stratum_ctx *sctx, char *s)
-{
-	bool ret = false;
-
-	if (opt_protocol)
-		applog(LOG_DEBUG, "> %s", s);
-
-	pthread_mutex_lock(&stratum_sock_lock);
-	ret = send_line(sctx, s);
-	pthread_mutex_unlock(&stratum_sock_lock);
-
-	return ret;
-}
-
-static bool socket_full(curl_socket_t sock, int timeout)
-{
-	struct timeval tv;
-	fd_set rd;
-
-	FD_ZERO(&rd);
-	FD_SET(sock, &rd);
-	tv.tv_sec = timeout;
-	tv.tv_usec = 0;
-	if (select((int)sock + 1, &rd, NULL, NULL, &tv) > 0)
-		return true;
-	return false;
-}
-
-bool stratum_socket_full(struct stratum_ctx *sctx, int timeout)
-{
-	if (!sctx->sockbuf) return false;
-	return strlen(sctx->sockbuf) || socket_full(sctx->sock, timeout);
-}
-
-#define RBUFSIZE 2048
-#define RECVSIZE (RBUFSIZE - 4)
-
-static void stratum_buffer_append(struct stratum_ctx *sctx, const char *s)
-{
-	size_t old, snew;
-
-	old = strlen(sctx->sockbuf);
-	snew = old + strlen(s) + 1;
-	if (snew >= sctx->sockbuf_size) {
-		sctx->sockbuf_size = snew + (RBUFSIZE - (snew % RBUFSIZE));
-		sctx->sockbuf = (char*)realloc(sctx->sockbuf, sctx->sockbuf_size);
-	}
-	strcpy(sctx->sockbuf + old, s);
-}
-
-char *stratum_recv_line(struct stratum_ctx *sctx)
-{
-	ssize_t len, buflen;
-	char *tok, *sret = NULL;
-
-	if (!strstr(sctx->sockbuf, "\n")) {
-		bool ret = true;
-		time_t rstart;
-
-		time(&rstart);
-		if (!socket_full(sctx->sock, 60)) {
-			applog(LOG_WARNING, "stratum_recv_line timed out");
-			goto out;
-		}
-		do {
-			char s[RBUFSIZE];
-			ssize_t n;
-
-			memset(s, 0, RBUFSIZE);
-#if LIBCURL_VERSION_NUM >= 0x071802
-			CURLcode rc = curl_easy_recv(sctx->curl, s, RECVSIZE, (size_t *)&n);
-			if (rc == CURLE_OK && !n) {
-				ret = false;
-				break;
-			}
-			if (rc != CURLE_OK) {
-				if (rc != CURLE_AGAIN || !socket_full(sctx->sock, 1)) {
-#else
-			n = recv(sctx->sock, s, RECVSIZE, 0);
-			if (!n) {
-				ret = false;
-				break;
-			}
-			if (n < 0) {
-				if (!socket_blocks() || !socket_full(sctx->sock, 1)) {
-#endif
-					ret = false;
-					break;
-				}
-			} else
-				stratum_buffer_append(sctx, s);
-		} while (time(NULL) - rstart < 60 && !strstr(sctx->sockbuf, "\n"));
-
-		if (!ret) {
-			applog(LOG_WARNING, "stratum_recv_line failed");
-			goto out;
-		}
-	}
-
-	buflen = (ssize_t) strlen(sctx->sockbuf);
-	tok = strtok(sctx->sockbuf, "\n");
-	if (!tok) {
-		applog(LOG_ERR, "stratum_recv_line failed to parse a newline-terminated string");
-		goto out;
-	}
-	sret = strdup(tok);
-	len = (ssize_t) strlen(sret);
-
-	if (buflen > len + 1)
-		memmove(sctx->sockbuf, sctx->sockbuf + len + 1, buflen - len + 1);
-	else
-		sctx->sockbuf[0] = '\0';
-
-out:
-	if (sret && opt_protocol)
-		applog(LOG_DEBUG, "< %s", sret);
-	return sret;
-}
-
-#if LIBCURL_VERSION_NUM >= 0x071101 && LIBCURL_VERSION_NUM < 0x072d00
-static curl_socket_t opensocket_grab_cb(void *clientp, curlsocktype purpose,
-	struct curl_sockaddr *addr)
-{
-	curl_socket_t *sock = (curl_socket_t *)clientp;
-	*sock = socket(addr->family, addr->socktype, addr->protocol);
-	return *sock;
-}
+#define JSON_LOADS(str, err_ptr) json_loads((str), (err_ptr))
+#define JSON_LOADF(str, err_ptr) json_load_file((str), (err_ptr))
 #endif
 
-bool stratum_connect(struct stratum_ctx *sctx, const char *url)
-{
-	CURL *curl;
-	int rc;
-
-	pthread_mutex_lock(&stratum_sock_lock);
-	if (sctx->curl)
-		curl_easy_cleanup(sctx->curl);
-	sctx->curl = curl_easy_init();
-	if (!sctx->curl) {
-		applog(LOG_ERR, "CURL initialization failed");
-		pthread_mutex_unlock(&stratum_sock_lock);
-		return false;
-	}
-	curl = sctx->curl;
-	if (!sctx->sockbuf) {
-		sctx->sockbuf = (char*) calloc(RBUFSIZE, 1);
-		sctx->sockbuf_size = RBUFSIZE;
-	}
-	sctx->sockbuf[0] = '\0';
-	pthread_mutex_unlock(&stratum_sock_lock);
-	if (url != sctx->url) {
-		free(sctx->url);
-		sctx->url = strdup(url);
-	}
-	free(sctx->curl_url);
-	sctx->curl_url = (char*) malloc(strlen(url));
-	sprintf( sctx->curl_url, "%s%s",
-            ( strstr( url, "s://" ) || strstr( url, "ssl://" ) )
-               ? "https" : "http", strstr( url, "://" ) );
-
-	if (opt_protocol)
-		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
-	curl_easy_setopt(curl, CURLOPT_URL, sctx->curl_url);
-	curl_easy_setopt(curl, CURLOPT_FRESH_CONNECT, 1);
-	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 30);
-	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, sctx->curl_err_str);
-	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
-	curl_easy_setopt(curl, CURLOPT_TCP_NODELAY, 1);
-	curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
-	curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);
-	if (opt_proxy && opt_proxy_type != CURLPROXY_HTTP) {
-		curl_easy_setopt(curl, CURLOPT_PROXY, opt_proxy);
-		curl_easy_setopt(curl, CURLOPT_PROXYTYPE, opt_proxy_type);
-	} else if (getenv("http_proxy")) {
-		if (getenv("all_proxy"))
-			curl_easy_setopt(curl, CURLOPT_PROXY, getenv("all_proxy"));
-		else if (getenv("ALL_PROXY"))
-			curl_easy_setopt(curl, CURLOPT_PROXY, getenv("ALL_PROXY"));
-		else
-			curl_easy_setopt(curl, CURLOPT_PROXY, "");
-	}
-#if LIBCURL_VERSION_NUM >= 0x070f06
-	curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_keepalive_cb);
-#endif
-#if LIBCURL_VERSION_NUM >= 0x071101 && LIBCURL_VERSION_NUM < 0x072d00
-	curl_easy_setopt(curl, CURLOPT_OPENSOCKETFUNCTION, opensocket_grab_cb);
-	curl_easy_setopt(curl, CURLOPT_OPENSOCKETDATA, &sctx->sock);
-#endif
-	curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 1);
-
-	rc = curl_easy_perform(curl);
-	if (rc) {
-		applog(LOG_ERR, "Stratum connection failed: %s", sctx->curl_err_str);
-		curl_easy_cleanup(curl);
-		sctx->curl = NULL;
-		return false;
-	}
-
-#if LIBCURL_VERSION_NUM >= 0x072d00
-	curl_easy_getinfo(curl, CURLINFO_ACTIVESOCKET, &sctx->sock);
-#elif LIBCURL_VERSION_NUM < 0x071101   
-	/* CURLINFO_LASTSOCKET is broken on Win64; only use it as a last resort */
-	curl_easy_getinfo(curl, CURLINFO_LASTSOCKET, (long *)&sctx->sock);
-#endif
-
-	return true;
-}
-
-void stratum_free_job(struct stratum_ctx *sctx)
-{
-	pthread_mutex_lock(&stratum_work_lock);
-	if (sctx->job.job_id) {
-		free(sctx->job.job_id);
-	}
-	if (sctx->job.merkle_count) {
-		for (int i = 0; i < sctx->job.merkle_count; i++) {
-			free(sctx->job.merkle[i]);
-			sctx->job.merkle[i] = NULL;
-		}
-		free(sctx->job.merkle);
-	}
-	free(sctx->job.coinbase);
-	// note: xnonce2 is not allocated
-	memset(&(sctx->job.job_id), 0, sizeof(struct stratum_job));
-	pthread_mutex_unlock(&stratum_work_lock);
-}
-
-void stratum_disconnect(struct stratum_ctx *sctx)
-{
-	pthread_mutex_lock(&stratum_sock_lock);
-	if (sctx->curl) {
-		pools[sctx->pooln].disconnects++;
-		curl_easy_cleanup(sctx->curl);
-		sctx->curl = NULL;
-		if (sctx->sockbuf)
-			sctx->sockbuf[0] = '\0';
-	}
-	if (sctx->job.job_id) {
-		stratum_free_job(sctx);
-	}
-	pthread_mutex_unlock(&stratum_sock_lock);
-}
-
-static const char *get_stratum_session_id(json_t *val)
-{
-	json_t *arr_val;
-	int i, n;
-
-	arr_val = json_array_get(val, 0);
-	if (!arr_val || !json_is_array(arr_val))
-		return NULL;
-	n = (int) json_array_size(arr_val);
-	for (i = 0; i < n; i++) {
-		const char *notify;
-		json_t *arr = json_array_get(arr_val, i);
-		if (!arr || !json_is_array(arr))
-			break;
-		notify = json_string_value(json_array_get(arr, 0));
-		if (!notify)
-			continue;
-		if (!strcasecmp(notify, "mining.notify"))
-			return json_string_value(json_array_get(arr, 1));
-	}
-	return NULL;
-}
-
-static bool stratum_parse_extranonce(struct stratum_ctx *sctx, json_t *params, int pndx)
-{
-	const char* xnonce1;
-	int xn2_size;
-
-	xnonce1 = json_string_value(json_array_get(params, pndx));
-	if (!xnonce1) {
-		applog(LOG_ERR, "Failed to get extranonce1");
-		goto out;
-	}
-	xn2_size = (int) json_integer_value(json_array_get(params, pndx+1));
-	if (!xn2_size) {
-		char algo[64] = { 0 };
-		get_currentalgo(algo, sizeof(algo));
-		if (strcmp(algo, "equihash") == 0) {
-			int xn1_size = (int)strlen(xnonce1) / 2;
-			xn2_size = 32 - xn1_size;
-			if (xn1_size < 4 || xn1_size > 12) {
-				// This miner iterates the nonces at data32[30]
-				applog(LOG_ERR, "Unsupported extranonce size of %d (12 maxi)", xn1_size);
-				goto out;
-			}
-			goto skip_n2;
-		} else {
-			applog(LOG_ERR, "Failed to get extranonce2_size");
-			goto out;
-		}
-	}
-	if (xn2_size < 2 || xn2_size > 16) {
-		applog(LOG_ERR, "Failed to get valid n2size in parse_extranonce (%d)", xn2_size);
-		goto out;
-	}
-skip_n2:
-	pthread_mutex_lock(&stratum_work_lock);
-	if (sctx->xnonce1)
-		free(sctx->xnonce1);
-	sctx->xnonce1_size = strlen(xnonce1) / 2;
-	sctx->xnonce1 = (uchar*) calloc(1, sctx->xnonce1_size);
-	if (unlikely(!sctx->xnonce1)) {
-		applog(LOG_ERR, "Failed to alloc xnonce1");
-		pthread_mutex_unlock(&stratum_work_lock);
-		goto out;
-	}
-	hex2bin(sctx->xnonce1, xnonce1, sctx->xnonce1_size);
-	sctx->xnonce2_size = xn2_size;
-	pthread_mutex_unlock(&stratum_work_lock);
-
-	if (pndx == 0 && opt_debug) /* pool dynamic change */
-		applog(LOG_DEBUG, "Stratum set nonce %s with extranonce2 size=%d",
-			xnonce1, xn2_size);
-
-	return true;
-out:
-	return false;
-}
-
-bool stratum_subscribe(struct stratum_ctx *sctx)
-{
-	char *s, *sret = NULL;
-	const char *sid;
-	json_t *val = NULL, *res_val, *err_val;
-	json_error_t err;
-	bool ret = false, retry = false;
-
-	if (sctx->rpc2) return true;
-
-start:
-	s = (char*)malloc(128 + (sctx->session_id ? strlen(sctx->session_id) : 0));
-	if (retry)
-		sprintf(s, "{\"id\": 1, \"method\": \"mining.subscribe\", \"params\": []}");
-	else if (sctx->session_id)
-		sprintf(s, "{\"id\": 1, \"method\": \"mining.subscribe\", \"params\": [\"" USER_AGENT "\", \"%s\"]}", sctx->session_id);
-	else
-		sprintf(s, "{\"id\": 1, \"method\": \"mining.subscribe\", \"params\": [\"" USER_AGENT "\"]}");
-
-	if (!stratum_send_line(sctx, s))
-		goto out;
-
-	if (!socket_full(sctx->sock, 10)) {
-		applog(LOG_ERR, "stratum_subscribe timed out");
-		goto out;
-	}
-
-	sret = stratum_recv_line(sctx);
-	if (!sret)
-		goto out;
-
-	val = JSON_LOADS(sret, &err);
-	free(sret);
-	if (!val) {
-		applog(LOG_ERR, "JSON decode failed(%d): %s", err.line, err.text);
-		goto out;
-	}
-
-	if (json_integer_value(json_object_get(val, "id")) != 1) {
-		applog(LOG_WARNING, "Stratum subscribe answer id is not correct!");
-	}
-
-	res_val = json_object_get(val, "result");
-	err_val = json_object_get(val, "error");
-
-	if (!res_val || json_is_null(res_val) ||
-	    (err_val && !json_is_null(err_val))) {
-		if (opt_debug || retry) {
-			free(s);
-			if (err_val)
-				s = json_dumps(err_val, JSON_INDENT(3));
-			else
-				s = strdup("(unknown reason)");
-			applog(LOG_ERR, "JSON-RPC call failed: %s", s);
-		}
-		goto out;
-	}
-
-	// sid is param 1, extranonce params are 2 and 3
-	if (!stratum_parse_extranonce(sctx, res_val, 1)) {
-		goto out;
-	}
-
-	ret = true;
-
-	// session id (optional)
-	sid = get_stratum_session_id(res_val);
-	if (opt_debug && sid)
-		applog(LOG_DEBUG, "Stratum session id: %s", sid);
-
-	pthread_mutex_lock(&stratum_work_lock);
-	if (sctx->session_id)
-		free(sctx->session_id);
-	sctx->session_id = sid ? strdup(sid) : NULL;
-	sctx->next_diff = 1.0;
-	pthread_mutex_unlock(&stratum_work_lock);
-
-out:
-	free(s);
-	if (val)
-		json_decref(val);
-
-	if (!ret) {
-		if (sret && !retry) {
-			retry = true;
-			goto start;
-		}
-	}
-
-	return ret;
-}
-
-extern bool opt_extranonce;
-
-bool stratum_authorize(struct stratum_ctx *sctx, const char *user, const char *pass)
-{
-	json_t *val = NULL, *res_val, *err_val;
-	char *s, *sret;
-	json_error_t err;
-	bool ret = false;
-
-	if (sctx->rpc2)
-		return rpc2_stratum_authorize(sctx, user, pass);
-
-	s = (char*) malloc(80 + strlen(user) + strlen(pass));
-	sprintf(s, "{\"id\": 2, \"method\": \"mining.authorize\", \"params\": [\"%s\", \"%s\"]}",
-			user, pass);
-
-	if (!stratum_send_line(sctx, s))
-		goto out;
-
-	while (1) {
-		sret = stratum_recv_line(sctx);
-		if (!sret)
-			goto out;
-		if (!stratum_handle_method(sctx, sret))
-			break;
-		free(sret);
-	}
-
-	val = JSON_LOADS(sret, &err);
-	free(sret);
-	if (!val) {
-		applog(LOG_ERR, "JSON decode failed(%d): %s", err.line, err.text);
-		goto out;
-	}
-
-	res_val = json_object_get(val, "result");
-	err_val = json_object_get(val, "error");
-
-	if (!res_val || json_is_false(res_val) ||
-	    (err_val && !json_is_null(err_val)))  {
-		applog(LOG_ERR, "Stratum authentication failed");
-		goto out;
-	}
-
-	ret = true;
-
-	if ( !opt_extranonce )
-		goto out;
-
-	// subscribe to extranonce (optional)
-	sprintf(s, "{\"id\": 3, \"method\": \"mining.extranonce.subscribe\", \"params\": []}");
-
-	if ( !stratum_send_line( sctx, s ) )
-		goto out;
-
-	if ( !socket_full( sctx->sock, 3 ) )
-   {
-      applog( LOG_WARNING, "Extranonce disabled, subscribe timed out" );
-		opt_extranonce = false;
-      goto out;
-	}
-
-	sret = stratum_recv_line( sctx );
-	if ( sret )
-   {
-		json_t *extra = JSON_LOADS( sret, &err );
-		if ( !extra )
-      {
-			applog(LOG_WARNING, "JSON decode failed(%d): %s", err.line, err.text);
-		}
-      else
-      {
-			if ( json_integer_value(json_object_get( extra, "id" ) ) != 3 )
-         {
-				// we receive a standard method if extranonce is ignored
-				if ( !stratum_handle_method( sctx, sret ) )
-					applog( LOG_WARNING, "Stratum answer id is not correct!" );
-			}
-         else
-         {
-            res_val = json_object_get( extra, "result" );
-			   if ( opt_debug && ( !res_val || json_is_false( res_val ) ) )
-				   applog( LOG_DEBUG,
-                       "Method extranonce.subscribe is not supported" );
-         }
-         json_decref( extra );
-		}
-		free(sret);
-	}
-
-out:
-	free(s);
-	if (val)
-		json_decref(val);
-
-	return ret;
-}
-
-/**
- * Extract bloc height     L H... here len=3, height=0x1333e8
- * "...0000000000ffffffff2703e83313062f503253482f043d61105408"
- */
-static uint32_t getblocheight(struct stratum_ctx *sctx)
-{
-	uint32_t height = 0;
-	uint8_t hlen = 0, *p, *m;
-
-	// find 0xffff tag
-	p = (uint8_t*) sctx->job.coinbase + 32;
-	m = p + 128;
-	while (*p != 0xff && p < m) p++;
-	while (*p == 0xff && p < m) p++;
-	if (*(p-1) == 0xff && *(p-2) == 0xff) {
-		p++; hlen = *p;
-		p++; height = le16dec(p);
-		p += 2;
-		switch (hlen) {
-			case 4:
-				height += 0x10000UL * le16dec(p);
-				break;
-			case 3:
-				height += 0x10000UL * (*p);
-				break;
-		}
-	}
-	return height;
-}
-
-static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
-{
-	const char *job_id, *prevhash, *coinb1, *coinb2, *version, *nbits, *stime;
-	const char *claim = NULL, *nreward = NULL;
-	size_t coinb1_size, coinb2_size;
-	bool clean, ret = false;
-	int merkle_count, i, p=0;
-	json_t *merkle_arr;
-	uchar **merkle = NULL;
-	// uchar(*merkle_tree)[32] = { 0 };
-	int ntime;
-	char algo[64] = { 0 };
-	get_currentalgo(algo, sizeof(algo));
-	bool has_claim = !strcasecmp(algo, "lbry");
-
-	if (sctx->is_equihash) {
-		return equi_stratum_notify(sctx, params);
-	}
-
-	job_id = json_string_value(json_array_get(params, p++));
-	prevhash = json_string_value(json_array_get(params, p++));
-	if (has_claim) {
-		claim = json_string_value(json_array_get(params, p++));
-		if (!claim || strlen(claim) != 64) {
-			applog(LOG_ERR, "Stratum notify: invalid claim parameter");
-			goto out;
-		}
-	}
-	coinb1 = json_string_value(json_array_get(params, p++));
-	coinb2 = json_string_value(json_array_get(params, p++));
-	merkle_arr = json_array_get(params, p++);
-	if (!merkle_arr || !json_is_array(merkle_arr))
-		goto out;
-	merkle_count = (int) json_array_size(merkle_arr);
-	version = json_string_value(json_array_get(params, p++));
-	nbits = json_string_value(json_array_get(params, p++));
-	stime = json_string_value(json_array_get(params, p++));
-	clean = json_is_true(json_array_get(params, p)); p++;
-	nreward = json_string_value(json_array_get(params, p++));
-
-	if (!job_id || !prevhash || !coinb1 || !coinb2 || !version || !nbits || !stime ||
-	    strlen(prevhash) != 64 || strlen(version) != 8 ||
-	    strlen(nbits) != 8 || strlen(stime) != 8) {
-		applog(LOG_ERR, "Stratum notify: invalid parameters");
-		goto out;
-	}
-
-	/* store stratum server time diff */
-	hex2bin((uchar *)&ntime, stime, 4);
-	ntime = swab32(ntime) - (uint32_t) time(0);
-	if (ntime > sctx->srvtime_diff) {
-		sctx->srvtime_diff = ntime;
-		if (opt_protocol && ntime > 20)
-			applog(LOG_DEBUG, "stratum time is at least %ds in the future", ntime);
-	}
-
-	if (merkle_count)
-		merkle = (uchar**) malloc(merkle_count * sizeof(char *));
-	for (i = 0; i < merkle_count; i++) {
-		const char *s = json_string_value(json_array_get(merkle_arr, i));
-		if (!s || strlen(s) != 64) {
-			while (i--)
-				free(merkle[i]);
-			free(merkle);
-			applog(LOG_ERR, "Stratum notify: invalid Merkle branch");
-			goto out;
-		}
-		merkle[i] = (uchar*) malloc(32);
-		hex2bin(merkle[i], s, 32);
-	}
-
-	pthread_mutex_lock(&stratum_work_lock);
-
-	coinb1_size = strlen(coinb1) / 2;
-	coinb2_size = strlen(coinb2) / 2;
-	sctx->job.coinbase_size = coinb1_size + sctx->xnonce1_size +
-	                          sctx->xnonce2_size + coinb2_size;
-
-	sctx->job.coinbase = (uchar*) realloc(sctx->job.coinbase, sctx->job.coinbase_size);
-	sctx->job.xnonce2 = sctx->job.coinbase + coinb1_size + sctx->xnonce1_size;
-	hex2bin(sctx->job.coinbase, coinb1, coinb1_size);
-	memcpy(sctx->job.coinbase + coinb1_size, sctx->xnonce1, sctx->xnonce1_size);
-
-	if (!sctx->job.job_id || strcmp(sctx->job.job_id, job_id))
-		memset(sctx->job.xnonce2, 0, sctx->xnonce2_size);
-	hex2bin(sctx->job.xnonce2 + sctx->xnonce2_size, coinb2, coinb2_size);
-
-	free(sctx->job.job_id);
-	sctx->job.job_id = strdup(job_id);
-	hex2bin(sctx->job.prevhash, prevhash, 32);
-	if (has_claim) hex2bin(sctx->job.claim, claim, 32);
-
-	sctx->job.height = getblocheight(sctx);
-
-	for (i = 0; i < sctx->job.merkle_count; i++)
-		free(sctx->job.merkle[i]);
-	free(sctx->job.merkle);
-	sctx->job.merkle = merkle;
-	sctx->job.merkle_count = merkle_count;
-
-	hex2bin(sctx->job.version, version, 4);
-	hex2bin(sctx->job.nbits, nbits, 4);
-	hex2bin(sctx->job.ntime, stime, 4);
-	if(nreward != NULL)
-	{
-		if(strlen(nreward) == 4)
-			hex2bin(sctx->job.nreward, nreward, 2);
-	}
-	sctx->job.clean = clean;
-
-	sctx->job.diff = sctx->next_diff;
-
-	pthread_mutex_unlock(&stratum_work_lock);
-
-	ret = true;
-
-out:
-	return ret;
-}
-
-extern volatile time_t g_work_time;
-static bool stratum_set_difficulty(struct stratum_ctx *sctx, json_t *params)
-{
-	double diff;
-
-	diff = json_number_value(json_array_get(params, 0));
-	if (diff <= 0.0)
-		return false;
-
-	pthread_mutex_lock(&stratum_work_lock);
-	sctx->next_diff = diff;
-	pthread_mutex_unlock(&stratum_work_lock);
-
-	return true;
-}
-
-static bool stratum_reconnect(struct stratum_ctx *sctx, json_t *params)
-{
-	json_t *port_val;
-	char *url;
-	const char *host;
-	int port;
-
-	host = json_string_value(json_array_get(params, 0));
-	port_val = json_array_get(params, 1);
-	if (json_is_string(port_val))
-		port = atoi(json_string_value(port_val));
-	else
-		port = (int) json_integer_value(port_val);
-	if (!host || !port)
-		return false;
-	
-	url = (char*)malloc(32 + strlen(host));
-
-	strncpy( url, sctx->url, 15 );
-	sprintf( strstr( url, "://" ) + 3, "%s:%d", host, port );
-	
-	applog(LOG_NOTICE, "Server requested reconnection to %s", sctx->url);
-
-	free(sctx->url);
-	sctx->url = url;
-	stratum_disconnect(sctx);
-
-	return true;
-}
-
-static bool stratum_pong(struct stratum_ctx *sctx, json_t *id)
-{
-	char buf[64];
-	bool ret = false;
-
-	if (!id || json_is_null(id))
-		return ret;
-
-	sprintf(buf, "{\"id\":%d,\"result\":\"pong\",\"error\":null}",
-		(int) json_integer_value(id));
-	ret = stratum_send_line(sctx, buf);
-
-	return ret;
-}
-
-static bool stratum_get_algo(struct stratum_ctx *sctx, json_t *id, json_t *params)
-{
-	char algo[64] = { 0 };
-	char *s;
-	json_t *val;
-	bool ret = true;
-
-	if (!id || json_is_null(id))
-		return false;
-
-	get_currentalgo(algo, sizeof(algo));
-
-	val = json_object();
-	json_object_set(val, "id", id);
-	json_object_set_new(val, "error", json_null());
-	json_object_set_new(val, "result", json_string(algo));
-
-	s = json_dumps(val, 0);
-	ret = stratum_send_line(sctx, s);
-	json_decref(val);
-	free(s);
-
-	return ret;
-}
-
-#include "nvml.h"
-extern char driver_version[32];
-extern int cuda_arch[MAX_GPUS];
-
-void gpu_increment_reject(int thr_id)
-{
-	struct cgpu_info *gpu = &thr_info[thr_id].gpu;
-	if (gpu) gpu->rejected++;
-}
-
-static bool json_object_set_error(json_t *result, int code, const char *msg)
-{
-	json_t *val = json_object();
-	json_object_set_new(val, "code", json_integer(code));
-	json_object_set_new(val, "message", json_string(msg));
-	return json_object_set_new(result, "error", val) != -1;
-}
-
-/* allow to report algo/device perf to the pool for algo stats */
-static bool stratum_benchdata(json_t *result, json_t *params, int thr_id)
-{
-	char algo[64] = { 0 };
-	char vid[32], arch[32], driver[64];
-	char *card;
-	char os[8];
-	uint32_t watts = 0, plimit = 0;
-	int dev_id = device_map[thr_id];
-	int cuda_ver = cuda_version();
-	struct cgpu_info *cgpu = &thr_info[thr_id].gpu;
-	json_t *val;
-
-	if (!cgpu || !opt_stratum_stats) return false;
-
-#if defined(WIN32) && (defined(_M_X64) || defined(__x86_64__))
-	strcpy(os, "win64");
-#else
-	strcpy(os, is_windows() ? "win32" : "linux");
-#endif
-
-	cuda_gpu_info(cgpu);
-#ifdef USE_WRAPNVML
-	cgpu->has_monitoring = true;
-	if (cgpu->monitor.gpu_power)
-		cgpu->gpu_power = cgpu->monitor.gpu_power;
-	else
-		cgpu->gpu_power = gpu_power(cgpu); // mWatts
-	watts = (cgpu->gpu_power >= 1000) ? cgpu->gpu_power / 1000 : 0; // ignore nvapi %
-	plimit = device_plimit[dev_id] > 0 ? device_plimit[dev_id] : 0;
-	gpu_info(cgpu); // vid/pid
-#endif
-	get_currentalgo(algo, sizeof(algo));
-
-	card = device_name[dev_id];
-	cgpu->khashes = stats_get_speed(thr_id, 0.0) / 1000.0;
-
-	sprintf(vid, "%04hx:%04hx", cgpu->gpu_vid, cgpu->gpu_pid);
-	sprintf(arch, "%d", (int) cgpu->gpu_arch);
-	if (cuda_arch[dev_id] > 0 && cuda_arch[dev_id] != cgpu->gpu_arch) {
-		// if binary was not compiled for the highest cuda arch, add it
-		snprintf(arch, 32, "%d@%d", (int) cgpu->gpu_arch, cuda_arch[dev_id]);
-	}
-	snprintf(driver, 64, "CUDA %d.%d %s", cuda_ver/1000, (cuda_ver%1000) / 10, driver_version);
-	driver[63] = '\0';
-
-	val = json_object();
-	json_object_set_new(val, "algo", json_string(algo));
-	json_object_set_new(val, "type", json_string("gpu"));
-	json_object_set_new(val, "device", json_string(card));
-	json_object_set_new(val, "vendorid", json_string(vid));
-	json_object_set_new(val, "arch", json_string(arch));
-	json_object_set_new(val, "freq", json_integer(cgpu->gpu_clock/1000));
-	json_object_set_new(val, "memf", json_integer(cgpu->gpu_memclock/1000));
-	json_object_set_new(val, "curr_freq", json_integer(cgpu->monitor.gpu_clock));
-	json_object_set_new(val, "curr_memf", json_integer(cgpu->monitor.gpu_memclock));
-	json_object_set_new(val, "power", json_integer(watts));
-	json_object_set_new(val, "plimit", json_integer(plimit));
-	json_object_set_new(val, "khashes", json_real(cgpu->khashes));
-	json_object_set_new(val, "intensity", json_real(cgpu->intensity));
-	json_object_set_new(val, "throughput", json_integer(cgpu->throughput));
-	json_object_set_new(val, "client", json_string(PACKAGE_NAME "/" PACKAGE_VERSION));
-	json_object_set_new(val, "os", json_string(os));
-	json_object_set_new(val, "driver", json_string(driver));
-
-	json_object_set_new(result, "result", val);
-
-	return true;
-}
-
-static bool stratum_get_stats(struct stratum_ctx *sctx, json_t *id, json_t *params)
-{
-	char *s;
-	json_t *val;
-	bool ret;
-
-	if (!id || json_is_null(id))
-		return false;
-
-	val = json_object();
-	json_object_set(val, "id", id);
-
-	ret = stratum_benchdata(val, params, 0);
-
-	if (!ret) {
-		json_object_set_error(val, 1, "disabled"); //EPERM
-	} else {
-		json_object_set_new(val, "error", json_null());
-	}
-
-	s = json_dumps(val, 0);
-	ret = stratum_send_line(sctx, s);
-	json_decref(val);
-	free(s);
-
-	return ret;
-}
-
-static bool stratum_get_version(struct stratum_ctx *sctx, json_t *id, json_t *params)
-{
-	char *s;
-	json_t *val;
-	bool ret = true;
-
-	if (!id || json_is_null(id))
-		return false;
-
-	val = json_object();
-	json_object_set(val, "id", id);
-	json_object_set_new(val, "result", json_string(USER_AGENT));
-	if (ret) json_object_set_new(val, "error", json_null());
-
-	s = json_dumps(val, 0);
-	ret = stratum_send_line(sctx, s);
-
-	json_decref(val);
-	free(s);
-
-	return ret;
-}
-
-static bool stratum_show_message(struct stratum_ctx *sctx, json_t *id, json_t *params)
-{
-	char *s;
-	json_t *val;
-	bool ret;
-
-	if (sctx->is_equihash)
-		return equi_stratum_show_message(sctx, id, params);
-
-	val = json_array_get(params, 0);
-	if (val)
-		applog(LOG_NOTICE, "MESSAGE FROM SERVER: %s", json_string_value(val));
-	
-	if (!id || json_is_null(id))
-		return true;
-
-	val = json_object();
-	json_object_set(val, "id", id);
-	json_object_set_new(val, "error", json_null());
-	json_object_set_new(val, "result", json_true());
-	s = json_dumps(val, 0);
-	ret = stratum_send_line(sctx, s);
-	json_decref(val);
-	free(s);
-
-	return ret;
-}
-
-static bool stratum_unknown_method(struct stratum_ctx *sctx, json_t *id)
-{
-	char *s;
-	json_t *val;
-	bool ret = false;
-
-	if (!id || json_is_null(id))
-		return ret;
-
-	val = json_object();
-	json_object_set(val, "id", id);
-	json_object_set_new(val, "result", json_false());
-	json_object_set_error(val, 38, "unknown method"); // ENOSYS
-
-	s = json_dumps(val, 0);
-	ret = stratum_send_line(sctx, s);
-	json_decref(val);
-	free(s);
-
-	return ret;
-}
-
-bool stratum_handle_method(struct stratum_ctx *sctx, const char *s)
-{
-	json_t *val, *id, *params;
-	json_error_t err;
-	const char *method;
-	bool ret = false;
-
-	val = JSON_LOADS(s, &err);
-	if (!val) {
-		applog(LOG_ERR, "JSON decode failed(%d): %s", err.line, err.text);
-		goto out;
-	}
-
-	method = json_string_value(json_object_get(val, "method"));
-	if (!method)
-		goto out;
-	id = json_object_get(val, "id");
-	params = json_object_get(val, "params");
-
-	if (!strcasecmp(method, "mining.notify")) {
-		ret = stratum_notify(sctx, params);
-		goto out;
-	}
-	if (!strcasecmp(method, "mining.ping")) { // cgminer 4.7.1+
-		if (opt_debug) applog(LOG_DEBUG, "Pool ping");
-		ret = stratum_pong(sctx, id);
-		goto out;
-	}
-	if (!strcasecmp(method, "mining.set_difficulty")) {
-		ret = stratum_set_difficulty(sctx, params);
-		goto out;
-	}
-	if (!strcasecmp(method, "mining.set_target")) {
-		sctx->is_equihash = true;
-		ret = equi_stratum_set_target(sctx, params);
-		goto out;
-	}
-	if (!strcasecmp(method, "mining.set_extranonce")) {
-		ret = stratum_parse_extranonce(sctx, params, 0);
-		goto out;
-	}
-	if (!strcasecmp(method, "client.reconnect")) {
-		ret = stratum_reconnect(sctx, params);
-		goto out;
-	}
-	if (!strcasecmp(method, "client.get_algo")) { // ccminer only yet!
-		// will prevent wrong algo parameters on a pool, will be used as test on rejects
-		if (!opt_quiet) applog(LOG_NOTICE, "Pool asked your algo parameter");
-		ret = stratum_get_algo(sctx, id, params);
-		goto out;
-	}
-	if (!strcasecmp(method, "client.get_stats")) { // ccminer/yiimp only yet!
-		// optional to fill device benchmarks
-		ret = stratum_get_stats(sctx, id, params);
-		goto out;
-	}
-	if (!strcasecmp(method, "client.get_version")) { // common
-		ret = stratum_get_version(sctx, id, params);
-		goto out;
-	}
-	if (!strcasecmp(method, "client.show_message")) { // common
-		ret = stratum_show_message(sctx, id, params);
-		goto out;
-	}
-	if (sctx->rpc2 && !strcasecmp(method, "job")) { // xmr/bbr
-		ret = rpc2_stratum_job(sctx, id, params);
-		goto out;
-	}
-
-	if (!ret) {
-		// don't fail = disconnect stratum on unknown (and optional?) methods
-		if (opt_debug) applog(LOG_WARNING, "unknown stratum method %s!", method);
-		ret = stratum_unknown_method(sctx, id);
-	}
-
-out:
-	if (val)
-		json_decref(val);
-
-	return ret;
-}
-
-struct thread_q *tq_new(void)
-{
-	struct thread_q *tq;
-
-	tq = (struct thread_q *)calloc(1, sizeof(*tq));
-	if (!tq)
-		return NULL;
-
-	INIT_LIST_HEAD(&tq->q);
-	pthread_mutex_init(&tq->mutex, NULL);
-	pthread_cond_init(&tq->cond, NULL);
-
-	return tq;
-}
-
-void tq_free(struct thread_q *tq)
-{
-	struct tq_ent *ent, *iter;
-
-	if (!tq)
-		return;
-
-	list_for_each_entry_safe(ent, iter, &tq->q, q_node, struct tq_ent, struct tq_ent) {
-		list_del(&ent->q_node);
-		free(ent);
-	}
-
-	pthread_cond_destroy(&tq->cond);
-	pthread_mutex_destroy(&tq->mutex);
-
-	memset(tq, 0, sizeof(*tq));	/* poison */
-	free(tq);
-}
-
-static void tq_freezethaw(struct thread_q *tq, bool frozen)
-{
-	pthread_mutex_lock(&tq->mutex);
-
-	tq->frozen = frozen;
-
-	pthread_cond_signal(&tq->cond);
-	pthread_mutex_unlock(&tq->mutex);
-}
-
-void tq_freeze(struct thread_q *tq)
-{
-	tq_freezethaw(tq, true);
-}
-
-void tq_thaw(struct thread_q *tq)
-{
-	tq_freezethaw(tq, false);
-}
-
-bool tq_push(struct thread_q *tq, void *data)
-{
-	struct tq_ent *ent;
-	bool rc = true;
-
-	ent = (struct tq_ent *)calloc(1, sizeof(*ent));
-	if (!ent)
-		return false;
-
-	ent->data = data;
-	INIT_LIST_HEAD(&ent->q_node);
-
-	pthread_mutex_lock(&tq->mutex);
-
-	if (!tq->frozen) {
-		list_add_tail(&ent->q_node, &tq->q);
-	} else {
-		free(ent);
-		rc = false;
-	}
-
-	pthread_cond_signal(&tq->cond);
-	pthread_mutex_unlock(&tq->mutex);
-
-	return rc;
-}
-
-void *tq_pop(struct thread_q *tq, const struct timespec *abstime)
-{
-	struct tq_ent *ent;
-	void *rval = NULL;
-	int rc;
-
-	pthread_mutex_lock(&tq->mutex);
-
-	if (!list_empty(&tq->q))
-		goto pop;
-
-	if (abstime)
-		rc = pthread_cond_timedwait(&tq->cond, &tq->mutex, abstime);
-	else
-		rc = pthread_cond_wait(&tq->cond, &tq->mutex);
-	if (rc)
-		goto out;
-	if (list_empty(&tq->q))
-		goto out;
-
-pop:
-	ent = list_entry(tq->q.next, struct tq_ent, q_node);
-	rval = ent->data;
-
-	list_del(&ent->q_node);
-	free(ent);
-
-out:
-	pthread_mutex_unlock(&tq->mutex);
-	return rval;
-}
-
-/**
- * @param buf char[9] mini
- * @param time_t timer to convert
- */
-size_t time2str(char* buf, time_t timer)
-{
-	struct tm* tm_info;
-	tm_info = localtime(&timer);
-	return strftime(buf, 19, "%H:%M:%S", tm_info);
-}
-
-/**
- * Alloc and returns time string (to be freed)
- * @param time_t timer to convert
- */
-char* atime2str(time_t timer)
-{
-	char* buf = (char*) malloc(16);
-	memset(buf, 0, 16);
-	time2str(buf, timer);
-	return buf;
-}
-
-/* sprintf can be used in applog */
-static char* format_hash(char* buf, uint8_t* h)
-{
-	uchar *hash = (uchar*) h;
-	int len = 0;
-	for (int i=0; i < 32; i += 4) {
-		len += sprintf(buf+len, "%02x%02x%02x%02x ",
-			hash[i], hash[i+1], hash[i+2], hash[i+3]);
-	}
-	return buf;
-}
-
-/* to debug diff in data */
-void applog_compare_hash(void *hash, void *hash_ref)
-{
-	char s[256] = "";
-	int len = 0;
-	uchar* hash1 = (uchar*)hash;
-	uchar* hash2 = (uchar*)hash_ref;
-	for (int i=0; i < 32; i += 4) {
-		const char *color = memcmp(hash1+i, hash2+i, 4) ? CL_WHT : CL_GRY;
-		len += sprintf(s+len, "%s%02x%02x%02x%02x " CL_GRY, color,
-			hash1[i], hash1[i+1], hash1[i+2], hash1[i+3]);
-		s[len] = '\0';
-	}
-	applog(LOG_DEBUG, "%s", s);
-}
-
-void applog_hash(void *hash)
-{
-	char s[128] = {'\0'};
-	applog(LOG_DEBUG, "%s", format_hash(s, (uint8_t*)hash));
-}
-
-void applog_hash64(void *hash)
-{
-	char s[128] = {'\0'};
-	char t[128] = {'\0'};
-	applog(LOG_DEBUG, "%s %s", format_hash(s, (uint8_t*)hash), format_hash(t, &((uint8_t*)hash)[32]));
-}
-
-void applog_hex(void *data, int len)
-{
-	char* hex = bin2hex((uchar*)data, len);
-	applog(LOG_DEBUG, "%s", hex);
-	free(hex);
-}
-
-#define printpfx(n,h) \
-	printf("%s%11s%s: %s\n", CL_GRN, n, CL_N, format_hash(s, h))
-
-static uint32_t zrtest[20] = {
-	swab32(0x01806486),
-	swab32(0x00000000),
-	swab32(0x00000000),
-	swab32(0x00000000),
-	swab32(0x00000000),
-	swab32(0x00000000),
-	swab32(0x00000000),
-	swab32(0x00000000),
-	swab32(0x00000000),
-	swab32(0x2ab03251),
-	swab32(0x87d4f28b),
-	swab32(0x6e22f086),
-	swab32(0x4845ddd5),
-	swab32(0x0ac4e6aa),
-	swab32(0x22a1709f),
-	swab32(0xfb4275d9),
-	swab32(0x25f26636),
-	swab32(0x300eed54),
-	swab32(0xffff0f1e),
-	swab32(0x2a9e2300),
+json_t * json_load_url(char* cfg_url, json_error_t *err);
+
+#define USER_AGENT PACKAGE_NAME "/" PACKAGE_VERSION
+
+void sha256_init(uint32_t *state);
+void sha256_transform(uint32_t *state, const uint32_t *block, int swap);
+void sha256d(unsigned char *hash, const unsigned char *data, int len);
+void gostd(void *output, const void *input, size_t len);
+
+#define HAVE_SHA256_4WAY 0
+#define HAVE_SHA256_8WAY 0
+
+struct work;
+
+extern int scanhash_allium(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_argon2d64(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_argon2d250(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_argon2d500(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_argon2d1000(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_argon2d4096(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_argon2d16000(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_anime(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_heavyhash(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_bastion(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_blake256(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done, int8_t blakerounds);
+extern int scanhash_blake2b(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_blake2s(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_bmw(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_bmw512(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_c11(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_cryptolight(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_cryptonight(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_decred(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_deep(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_evohash(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_keccak256(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_fresh(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_fugue256(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_gostd(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_groestlcoin(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_hmq17(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_heavy(int thr_id,struct work *work, uint32_t max_nonce, unsigned long *hashes_done, uint32_t maxvote, int blocklen);
+extern int scanhash_hsr(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_jha(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_jackpot(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done); // quark method
+extern int scanhash_lbry(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_luffa(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_lyra2(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_lyra2v2(int thr_id,struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_lyra2Z(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_myriad(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_neoscrypt(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_nist5(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_pentablake(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_phi(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_polytimos(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_quark(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_qubit(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_rinhash(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_sha256d(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_sha256t(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_sha256csm(int thr_id, struct work* work, uint32_t max_nonce, unsigned long* hashes_done);
+extern int scanhash_sha3d(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_sia(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_sib(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_skeincoin(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_skein2(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_skunk(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_s3(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_timetravel(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_tribus(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_bitcore(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_vanilla(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done, int8_t blake_rounds);
+extern int scanhash_veltor(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_whirl(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_wildkeccak(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_x11evo(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_hash0x10(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_x11(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_x13(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_x14(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_x15(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_x16r(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_x16rt(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_x16rv2(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_x16s(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_x17(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_x21s(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_zr5(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+
+extern int scanhash_yescrypt(int thr_id, struct work* work, uint32_t max_nonce, unsigned long* hashes_done);
+extern int scanhash_yescryptr8(int thr_id, struct work* work, uint32_t max_nonce, unsigned long* hashes_done);
+extern int scanhash_yescryptr16(int thr_id, struct work* work, uint32_t max_nonce, unsigned long* hashes_done);
+extern int scanhash_yescryptr16v2(int thr_id, struct work* work, uint32_t max_nonce, unsigned long* hashes_done);
+extern int scanhash_yescryptr24(int thr_id, struct work* work, uint32_t max_nonce, unsigned long* hashes_done);
+extern int scanhash_yescryptr32(int thr_id, struct work* work, uint32_t max_nonce, unsigned long* hashes_done);
+
+/* free device allocated memory per algo */
+void algo_free_all(int thr_id);
+
+extern void free_allium(int thr_id);
+extern void free_argon2d64(int thr_id);
+extern void free_argon2d250(int thr_id);
+extern void free_argon2d500(int thr_id);
+extern void free_argon2d1000(int thr_id);
+extern void free_argon2d4096(int thr_id);
+extern void free_argon2d16000(int thr_id);
+extern void free_heavyhash(int thr_id);
+extern void free_bastion(int thr_id);
+extern void free_bitcore(int thr_id);
+extern void free_blake256(int thr_id);
+extern void free_blake2b(int thr_id);
+extern void free_blake2s(int thr_id);
+extern void free_bmw(int thr_id);
+extern void free_bmw512(int thr_id);
+extern void free_c11(int thr_id);
+extern void free_cryptolight(int thr_id);
+extern void free_cryptonight(int thr_id);
+extern void free_decred(int thr_id);
+extern void free_deep(int thr_id);
+extern void free_evohash(int thr_id);
+extern void free_keccak256(int thr_id);
+extern void free_fresh(int thr_id);
+extern void free_fugue256(int thr_id);
+extern void free_gostd(int thr_id);
+extern void free_groestlcoin(int thr_id);
+extern void free_heavy(int thr_id);
+extern void free_hmq17(int thr_id);
+extern void free_hsr(int thr_id);
+extern void free_jackpot(int thr_id);
+extern void free_jha(int thr_id);
+extern void free_lbry(int thr_id);
+extern void free_luffa(int thr_id);
+extern void free_lyra2(int thr_id);
+extern void free_lyra2v2(int thr_id);
+extern void free_lyra2Z(int thr_id);
+extern void free_myriad(int thr_id);
+extern void free_neoscrypt(int thr_id);
+extern void free_nist5(int thr_id);
+extern void free_pentablake(int thr_id);
+extern void free_phi(int thr_id);
+extern void free_polytimos(int thr_id);
+extern void free_quark(int thr_id);
+extern void free_qubit(int thr_id);
+extern void free_sha256d(int thr_id);
+extern void free_sha256csm(int thr_id);
+extern void free_sha256t(int thr_id);
+extern void free_rinhash(int thr_id);
+extern void free_sha3d(int thr_id);
+extern void free_sia(int thr_id);
+extern void free_sib(int thr_id);
+extern void free_skeincoin(int thr_id);
+extern void free_skein2(int thr_id);
+extern void free_skunk(int thr_id);
+extern void free_s3(int thr_id);
+extern void free_timetravel(int thr_id);
+extern void free_tribus(int thr_id);
+extern void free_vanilla(int thr_id);
+extern void free_veltor(int thr_id);
+extern void free_whirl(int thr_id);
+extern void free_wildkeccak(int thr_id);
+extern void free_x11evo(int thr_id);
+extern void free_x11(int thr_id);
+extern void free_x13(int thr_id);
+extern void free_x14(int thr_id);
+extern void free_x15(int thr_id);
+extern void free_x16r(int thr_id);
+extern void free_x16rt(int thr_id);
+extern void free_x16rv2(int thr_id);
+extern void free_x16s(int thr_id);
+extern void free_x17(int thr_id);
+extern void free_x21s(int thr_id);
+extern void free_zr5(int thr_id);
+/* api related */
+void *api_thread(void *userdata);
+void api_set_throughput(int thr_id, uint32_t throughput);
+void gpu_increment_reject(int thr_id);
+
+struct monitor_info {
+	uint32_t gpu_temp;
+	uint32_t gpu_fan;
+	uint32_t gpu_clock;
+	uint32_t gpu_memclock;
+	uint32_t gpu_power;
+
+	pthread_mutex_t lock;
+	pthread_cond_t sampling_signal;
+	volatile bool sampling_flag;
+	uint32_t tm_displayed;
 };
 
-void do_gpu_tests(void)
-{
-#ifdef _DEBUG
-	unsigned long done;
-	char s[128] = { '\0' };
-	struct work work;
-	memset(&work, 0, sizeof(work));
+struct cgpu_info {
+	uint8_t gpu_id;
+	uint8_t thr_id;
+	uint16_t hw_errors;
+	unsigned accepted;
+	uint32_t rejected;
+	double khashes;
+	int has_monitoring;
+	float gpu_temp;
+	uint16_t gpu_fan;
+	uint16_t gpu_fan_rpm;
+	uint16_t gpu_arch;
+	uint32_t gpu_clock;
+	uint32_t gpu_memclock;
+	uint64_t gpu_mem;
+	uint64_t gpu_memfree;
+	uint32_t gpu_power;
+	uint32_t gpu_plimit;
+	double gpu_vddc;
+	int16_t gpu_pstate;
+	int16_t gpu_bus;
+	uint16_t gpu_vid;
+	uint16_t gpu_pid;
 
-	opt_tracegpu = true;
-	work_restart = (struct work_restart*) malloc(sizeof(struct work_restart));
-	work_restart[0].restart = 1;
-	work.target[7] = 0xffff;
+	int8_t nvml_id;
+	int8_t nvapi_id;
 
-	//struct timeval tv;
-	//memset(work.data, 0, sizeof(work.data));
-	//scanhash_scrypt_jane(0, &work, NULL, 1, &done, &tv, &tv);
+	char gpu_sn[64];
+	char gpu_desc[64];
+	double intensity;
+	uint32_t throughput;
 
-	memset(work.data, 0, sizeof(work.data));
-	work.data[0] = 0;
-	scanhash_hmq17(0, &work, 1, &done);
+	struct monitor_info monitor;
+};
 
-	free(work_restart);
-	work_restart = NULL;
-	opt_tracegpu = false;
+struct thr_api {
+	int id;
+	pthread_t pth;
+	struct thread_q	*q;
+};
+
+struct stats_data {
+	uint32_t uid;
+	uint32_t tm_stat;
+	uint32_t hashcount;
+	uint32_t height;
+
+	double difficulty;
+	double hashrate;
+
+	uint8_t thr_id;
+	uint8_t gpu_id;
+	uint8_t hashfound;
+	uint8_t ignored;
+
+	uint8_t npool;
+	uint8_t pool_type;
+	uint16_t align;
+};
+
+struct hashlog_data {
+	uint8_t npool;
+	uint8_t pool_type;
+	uint8_t nonce_id;
+	uint8_t job_nonce_id;
+
+	uint32_t height;
+	double sharediff;
+
+	uint32_t njobid;
+	uint32_t nonce;
+	uint32_t scanned_from;
+	uint32_t scanned_to;
+	uint32_t last_from;
+	uint32_t tm_add;
+	uint32_t tm_upd;
+	uint32_t tm_sent;
+};
+
+/* end of api */
+
+struct thr_info {
+	int		id;
+	pthread_t	pth;
+	struct thread_q	*q;
+	struct cgpu_info gpu;
+};
+
+struct work_restart {
+	/* volatile to modify accross threads (vstudio thing) */
+	volatile uint32_t restart;
+	char padding[128 - sizeof(uint32_t)];
+};
+
+#ifdef HAVE_GETOPT_LONG
+#include <getopt.h>
+#else
+struct option {
+	const char *name;
+	int has_arg;
+	int *flag;
+	int val;
+};
 #endif
+extern int options_count();
+
+extern bool opt_benchmark;
+extern bool opt_debug;
+extern bool opt_quiet;
+extern bool opt_protocol;
+extern bool opt_showdiff;
+extern bool opt_tracegpu;
+extern int opt_n_threads;
+extern int active_gpus;
+extern int gpu_threads;
+extern int opt_timeout;
+extern bool want_longpoll;
+extern bool have_longpoll;
+extern bool want_stratum;
+extern bool have_stratum;
+extern bool opt_stratum_stats;
+extern char *opt_cert;
+extern char *opt_proxy;
+extern long opt_proxy_type;
+extern bool use_syslog;
+extern bool use_colors;
+extern int use_pok;
+extern pthread_mutex_t applog_lock;
+extern struct thr_info *thr_info;
+extern int longpoll_thr_id;
+extern int stratum_thr_id;
+extern int api_thr_id;
+extern volatile bool abort_flag;
+extern struct work_restart *work_restart;
+extern bool opt_trust_pool;
+extern uint16_t opt_vote;
+
+extern uint64_t global_hashrate;
+extern uint64_t net_hashrate;
+extern double net_diff;
+extern double stratum_diff;
+
+#define MAX_GPUS 16
+//#define MAX_THREADS 32 todo
+extern char* device_name[MAX_GPUS];
+extern short device_map[MAX_GPUS];
+extern short device_mpcount[MAX_GPUS];
+extern long  device_sm[MAX_GPUS];
+extern uint32_t device_plimit[MAX_GPUS];
+extern uint32_t gpus_intensity[MAX_GPUS];
+extern int opt_cudaschedule;
+
+// cuda.cpp
+int cuda_num_devices();
+void cuda_devicenames();
+void cuda_reset_device(int thr_id, bool *init);
+void cuda_shutdown();
+int cuda_finddevice(char *name);
+int cuda_version();
+void cuda_print_devices();
+int cuda_gpu_info(struct cgpu_info *gpu);
+int cuda_available_memory(int thr_id);
+
+uint32_t cuda_default_throughput(int thr_id, uint32_t defcount);
+#define device_intensity(t,f,d) cuda_default_throughput(t,d)
+double throughput2intensity(uint32_t throughput);
+
+void cuda_log_lasterror(int thr_id, const char* func, int line);
+void cuda_clear_lasterror();
+#define CUDA_LOG_ERROR() cuda_log_lasterror(thr_id, __func__, __LINE__)
+
+#define CL_N    "\x1B[0m"
+#define CL_RED  "\x1B[31m"
+#define CL_GRN  "\x1B[32m"
+#define CL_YLW  "\x1B[33m"
+#define CL_BLU  "\x1B[34m"
+#define CL_MAG  "\x1B[35m"
+#define CL_CYN  "\x1B[36m"
+
+#define CL_BLK  "\x1B[22;30m" /* black */
+#define CL_RD2  "\x1B[22;31m" /* red */
+#define CL_GR2  "\x1B[22;32m" /* green */
+#define CL_YL2  "\x1B[22;33m" /* dark yellow */
+#define CL_BL2  "\x1B[22;34m" /* blue */
+#define CL_MA2  "\x1B[22;35m" /* magenta */
+#define CL_CY2  "\x1B[22;36m" /* cyan */
+#define CL_SIL  "\x1B[22;37m" /* gray */
+
+#ifdef WIN32
+#define CL_GRY  "\x1B[01;30m" /* dark gray */
+#else
+#define CL_GRY  "\x1B[90m"    /* dark gray selectable in putty */
+#endif
+#define CL_LRD  "\x1B[01;31m" /* light red */
+#define CL_LGR  "\x1B[01;32m" /* light green */
+#define CL_LYL  "\x1B[01;33m" /* tooltips */
+#define CL_LBL  "\x1B[01;34m" /* light blue */
+#define CL_LMA  "\x1B[01;35m" /* light magenta */
+#define CL_LCY  "\x1B[01;36m" /* light cyan */
+
+#define CL_WHT  "\x1B[01;37m" /* white */
+
+extern void format_hashrate(double hashrate, char *output);
+extern void format_hashrate_unit(double hashrate, char *output, const char* unit);
+extern void applog(int prio, const char *fmt, ...);
+extern void gpulog(int prio, int thr_id, const char *fmt, ...);
+
+void get_defconfig_path(char *out, size_t bufsize, char *argv0);
+extern void cbin2hex(char *out, const char *in, size_t len);
+extern char *bin2hex(const unsigned char *in, size_t len);
+extern bool hex2bin(void *output, const char *hexstr, size_t len);
+extern int timeval_subtract(struct timeval *result, struct timeval *x,
+	struct timeval *y);
+extern bool fulltest(const uint32_t *hash, const uint32_t *target);
+void diff_to_target(uint32_t* target, double diff);
+void work_set_target(struct work* work, double diff);
+void rinhash_work_set_target(struct work* work, double diff);
+// void work_set_target(struct work* work, double diff);
+double target_to_diff(uint32_t* target);
+extern void get_currentalgo(char* buf, int sz);
+
+// bignum
+double bn_convert_nbits(const uint32_t nbits);
+void bn_nbits_to_uchar(const uint32_t nBits, uchar *target);
+double bn_hash_target_ratio(uint32_t* hash, uint32_t* target);
+void bn_store_hash_target_ratio(uint32_t* hash, uint32_t* target, struct work* work, int nonce);
+void bn_set_target_ratio(struct work* work, uint32_t* hash, int nonce);
+void work_set_target_ratio(struct work* work, uint32_t* hash);
+
+// bench
+extern int bench_algo;
+void bench_init(int threads);
+void bench_free();
+bool bench_algo_switch_next(int thr_id);
+void bench_set_throughput(int thr_id, uint32_t throughput);
+void bench_display_results();
+
+struct stratum_job {
+	char *job_id;
+	unsigned char prevhash[32];
+	size_t coinbase_size;
+	unsigned char *coinbase;
+	unsigned char *xnonce2;
+	int merkle_count;
+	unsigned char **merkle;
+	unsigned char version[4];
+	unsigned char nbits[4];
+	unsigned char ntime[4];
+	unsigned char claim[32]; // lbry
+	bool clean;
+	unsigned char nreward[2];
+	uint32_t height;
+	uint32_t shares_count;
+	double diff;
+};
+
+struct stratum_ctx {
+	char *url;
+
+	CURL *curl;
+	char *curl_url;
+	char curl_err_str[CURL_ERROR_SIZE];
+	curl_socket_t sock;
+	size_t sockbuf_size;
+	char *sockbuf;
+
+	double next_diff;
+	double sharediff;
+
+	char *session_id;
+	size_t xnonce1_size;
+	unsigned char *xnonce1;
+	size_t xnonce2_size;
+	struct stratum_job job;
+
+	struct timeval tv_submit;
+	uint32_t answer_msec;
+	int pooln;
+	time_t tm_connected;
+
+	int rpc2;
+	int is_equihash;
+	int srvtime_diff;
+};
+
+#define POK_MAX_TXS   4
+#define POK_MAX_TX_SZ 16384U
+struct tx {
+	uint8_t data[POK_MAX_TX_SZ];
+	uint32_t len;
+};
+
+#define MAX_NONCES 2
+struct work {
+	uint32_t data[48];
+	uint32_t target[8];
+	uint32_t maxvote;
+
+	char job_id[128];
+	size_t xnonce2_len;
+	uchar xnonce2[32];
+
+	union {
+		uint32_t u32[2];
+		uint64_t u64[1];
+	} noncerange;
+
+	uint8_t pooln;
+	uint8_t valid_nonces;
+	uint8_t submit_nonce_id;
+	uint8_t job_nonce_id;
+
+	uint32_t nonces[MAX_NONCES];
+	double sharediff[MAX_NONCES];
+	double shareratio[MAX_NONCES];
+	double targetdiff;
+
+	uint32_t height;
+
+	uint32_t scanned_from;
+	uint32_t scanned_to;
+
+	/* pok getwork txs */
+	uint32_t tx_count;
+	struct tx txs[POK_MAX_TXS];
+	// zec solution
+	uint8_t extra[1388];
+};
+
+#define POK_BOOL_MASK 0x00008000
+#define POK_DATA_MASK 0xFFFF0000
+
+#define MAX_POOLS 8
+struct pool_infos {
+	uint8_t id;
+#define POOL_UNUSED   0
+#define POOL_GETWORK  1
+#define POOL_STRATUM  2
+#define POOL_LONGPOLL 4
+	uint8_t type;
+#define POOL_ST_DEFINED 1
+#define POOL_ST_VALID 2
+#define POOL_ST_DISABLED 4
+#define POOL_ST_REMOVED 8
+	uint16_t status;
+	int algo;
+	char name[64];
+	// credentials
+	char url[512];
+	char short_url[64];
+	char user[192];
+	char pass[384];
+	// config options
+	double max_diff;
+	double max_rate;
+	int shares_limit;
+	int time_limit;
+	int scantime;
+	// connection
+	struct stratum_ctx stratum;
+	uint8_t allow_gbt;
+	uint8_t allow_mininginfo;
+	uint16_t check_dups; // 16_t for align
+	int retries;
+	int fail_pause;
+	int timeout;
+	// stats
+	uint32_t work_time;
+	uint32_t wait_time;
+	uint32_t accepted_count;
+	uint32_t rejected_count;
+	uint32_t solved_count;
+	uint32_t stales_count;
+	time_t last_share_time;
+	double best_share;
+	uint32_t disconnects;
+};
+
+extern struct pool_infos pools[MAX_POOLS];
+extern int num_pools;
+extern volatile int cur_pooln;
+
+void pool_init_defaults(void);
+void pool_set_creds(int pooln);
+void pool_set_attr(int pooln, const char* key, char* arg);
+bool pool_switch_url(char *params);
+bool pool_switch(int thr_id, int pooln);
+bool pool_switch_next(int thr_id);
+int pool_get_first_valid(int startfrom);
+bool parse_pool_array(json_t *obj);
+void pool_dump_infos(void);
+
+json_t * json_rpc_call_pool(CURL *curl, struct pool_infos*,
+	const char *req, bool lp_scan, bool lp, int *err);
+json_t * json_rpc_longpoll(CURL *curl, char *lp_url, struct pool_infos*,
+	const char *req, int *err);
+
+bool stratum_socket_full(struct stratum_ctx *sctx, int timeout);
+bool stratum_send_line(struct stratum_ctx *sctx, char *s);
+char *stratum_recv_line(struct stratum_ctx *sctx);
+bool stratum_connect(struct stratum_ctx *sctx, const char *url);
+void stratum_disconnect(struct stratum_ctx *sctx);
+bool stratum_subscribe(struct stratum_ctx *sctx);
+bool stratum_authorize(struct stratum_ctx *sctx, const char *user, const char *pass);
+bool stratum_handle_method(struct stratum_ctx *sctx, const char *s);
+void stratum_free_job(struct stratum_ctx *sctx);
+
+bool rpc2_stratum_authorize(struct stratum_ctx *sctx, const char *user, const char *pass);
+
+bool equi_stratum_notify(struct stratum_ctx *sctx, json_t *params);
+bool equi_stratum_set_target(struct stratum_ctx *sctx, json_t *params);
+bool equi_stratum_submit(struct pool_infos *pool, struct work *work);
+bool equi_stratum_show_message(struct stratum_ctx *sctx, json_t *id, json_t *params);
+void equi_work_set_target(struct work* work, double diff);
+void equi_store_work_solution(struct work* work, uint32_t* hash, void* sol_data);
+int equi_verify_sol(void * const hdr, void * const sol);
+double equi_network_diff(struct work *work);
+
+void hashlog_remember_submit(struct work* work, uint32_t nonce);
+void hashlog_remember_scan_range(struct work* work);
+double hashlog_get_sharediff(char* jobid, int idnonce, double defvalue);
+uint32_t hashlog_already_submittted(char* jobid, uint32_t nounce);
+uint32_t hashlog_get_last_sent(char* jobid);
+uint64_t hashlog_get_scan_range(char* jobid);
+int  hashlog_get_history(struct hashlog_data *data, int max_records);
+void hashlog_purge_old(void);
+void hashlog_purge_job(char* jobid);
+void hashlog_purge_all(void);
+void hashlog_dump_job(char* jobid);
+void hashlog_getmeminfo(uint64_t *mem, uint32_t *records);
+
+void stats_remember_speed(int thr_id, uint32_t hashcount, double hashrate, uint8_t found, uint32_t height);
+double stats_get_speed(int thr_id, double def_speed);
+double stats_get_gpu_speed(int gpu_id);
+int  stats_get_history(int thr_id, struct stats_data *data, int max_records);
+void stats_purge_old(void);
+void stats_purge_all(void);
+void stats_getmeminfo(uint64_t *mem, uint32_t *records);
+
+struct thread_q;
+
+extern struct thread_q *tq_new(void);
+extern void tq_free(struct thread_q *tq);
+extern bool tq_push(struct thread_q *tq, void *data);
+extern void *tq_pop(struct thread_q *tq, const struct timespec *abstime);
+extern void tq_freeze(struct thread_q *tq);
+extern void tq_thaw(struct thread_q *tq);
+
+#define EXIT_CODE_OK            0
+#define EXIT_CODE_USAGE         1
+#define EXIT_CODE_POOL_TIMEOUT  2
+#define EXIT_CODE_SW_INIT_ERROR 3
+#define EXIT_CODE_CUDA_NODEVICE 4
+#define EXIT_CODE_CUDA_ERROR    5
+#define EXIT_CODE_TIME_LIMIT    0
+#define EXIT_CODE_KILLED        7
+
+void parse_arg(int key, char *arg);
+void proper_exit(int reason);
+void restart_threads(void);
+
+size_t time2str(char* buf, time_t timer);
+char* atime2str(time_t timer);
+
+void applog_hex(void *data, int len);
+void applog_hash(void *hash);
+void applog_hash64(void *hash);
+void applog_compare_hash(void *hash, void *hash_ref);
+
+void print_hash_tests(void);
+void allium_hash(void *output, const void *input);
+void heavyhash_hash(void *output, const void *input);
+void bastionhash(void* output, const unsigned char* input);
+void blake256hash(void *output, const void *input, int8_t rounds);
+void blake2b_hash(void *output, const void *input);
+void blake2s_hash(void *output, const void *input);
+void bmw_hash(void *state, const void *input);
+void bmw512_hash(void *state, const void *input);
+void c11hash(void *output, const void *input);
+void cryptolight_hash(void* output, const void* input, int len);
+void cryptonight_hash(void* output, const void* input, size_t len);
+void decred_hash(void *state, const void *input);
+void deephash(void *state, const void *input);
+void evohash(void *state, const void *input);
+void luffa_hash(void *state, const void *input);
+void fresh_hash(void *state, const void *input);
+void fugue256_hash(unsigned char* output, const unsigned char* input, int len);
+void gostd_hash(void *output, const void *input);
+void heavycoin_hash(unsigned char* output, const unsigned char* input, int len);
+void hmq17hash(void *output, const void *input);
+void hsr_hash(void *output, const void *input);
+void keccak256_hash(void *state, const void *input);
+void sha3d_hash(void *state, const void *input);
+void jackpothash(void *state, const void *input);
+void groestlhash(void *state, const void *input);
+void jha_hash(void *output, const void *input);
+void lbry_hash(void *output, const void *input);
+void lyra2re_hash(void *state, const void *input);
+void lyra2v2_hash(void *state, const void *input);
+void lyra2Z_hash(void *state, const void *input);
+void myriadhash(void *state, const void *input);
+void neoscrypt(uchar *output, const uchar *input, uint32_t profile);
+void nist5hash(void *state, const void *input);
+void pentablakehash(void *output, const void *input);
+void phihash(void *output, const void *input);
+void polytimos_hash(void *output, const void *input);
+void quarkhash(void *state, const void *input);
+void qubithash(void *state, const void *input);
+void scrypthash(void* output, const void* input);
+void scryptjane_hash(void* output, const void* input);
+void sha256csm_hash(void* output, const void* input);
+void sha256d_hash(void *output, const void *input);
+void sha256t_hash(void *output, const void *input);
+void sia_blake2b_hash(void *output, const void *input);
+void sibhash(void *output, const void *input);
+void skeincoinhash(void *output, const void *input);
+void skein2hash(void *output, const void *input);
+void skunk_hash(void *state, const void *input);
+void s3hash(void *output, const void *input);
+void timetravel_hash(void *output, const void *input);
+void bitcore_hash(void *output, const void *input);
+void tribus_hash(void *output, const void *input);
+void veltorhash(void *output, const void *input);
+void wcoinhash(void *state, const void *input);
+void whirlxHash(void *state, const void *input);
+void x11evo_hash(void *output, const void *input);
+void hash0x10(void *output, const void *input);
+void x11hash(void *output, const void *input);
+void x13hash(void *output, const void *input);
+void x14hash(void *output, const void *input);
+void x15hash(void *output, const void *input);
+void x16r_hash(void *output, const void *input);
+void x16rt_hash(void *output, const void *input);
+void x16rv2_hash(void *output, const void *input);
+void x16s_hash(void *output, const void *input);
+void x17hash(void *output, const void *input);
+void x21s_hash(void *output, const void *input);
+void wildkeccak_hash(void *output, const void *input, uint64_t* scratchpad, uint64_t ssize);
+void yescrypt_hash(void* output, const void* input);
+void yescryptr8_hash(void* output, const void* input);
+void yescryptr16_hash(void* output, const void* input);
+void yescryptr16v2_hash(void* output, const void* input);
+void yescryptr24_hash(void* output, const void* input);
+void yescryptr32_hash(void* output, const void* input);
+void zr5hash(void *output, const void *input);
+void zr5hash_pok(void *output, uint32_t *pdata);
+
+#ifdef __cplusplus
 }
+#endif
 
-void print_hash_tests(void)
-{
-	uchar *scratchbuf = NULL;
-	char s[128] = {'\0'};
-	uchar hash[128];
-	uchar buf[192];
-
-	// work space for scratchpad based algos
-	scratchbuf = (uchar*)calloc(128, 1024);
-	memset(buf, 0, sizeof buf);
-
-	// buf[0] = 1; buf[64] = 2; // for endian tests
-
-	printf(CL_WHT "CPU HASH ON EMPTY BUFFER RESULTS:" CL_N "\n");
-
-	allium_hash(&hash[0], &buf[0]);
-	printpfx("allium", hash);
-
-	heavyhash_hash(&hash[0], &buf[0]);
-	printpfx("heavyhash", hash);
-
-	bastionhash(&hash[0], &buf[0]);
-	printpfx("bastion", hash);
-
-	blake256hash(&hash[0], &buf[0], 8);
-	printpfx("blakecoin", hash);
-
-	blake256hash(&hash[0], &buf[0], 14);
-	printpfx("blake", hash);
-
-	blake2b_hash(&hash[0], &buf[0]);
-	printpfx("blake2b", hash);
-
-	blake2s_hash(&hash[0], &buf[0]);
-	printpfx("blake2s", hash);
-
-	bmw_hash(&hash[0], &buf[0]);
-	printpfx("bmw", hash);
-
-	bmw512_hash(&hash[0], &buf[0]);
-	printpfx("bmw512", hash);
-
-	c11hash(&hash[0], &buf[0]);
-	printpfx("c11", hash);
-
-	cryptolight_hash(&hash[0], &buf[0], 76);
-	printpfx("cryptolight", hash);
-
-	cryptonight_hash(&hash[0], &buf[0], 76);
-	printpfx("cryptonight", hash);
-
-	memset(buf, 0, 180);
-	decred_hash(&hash[0], &buf[0]);
-	printpfx("decred", hash);
-
-	deephash(&hash[0], &buf[0]);
-	printpfx("deep", hash);
-
-	evohash(&hash[0], &buf[0]);
-	printpfx("evohash", hash);
-
-	fresh_hash(&hash[0], &buf[0]);
-	printpfx("fresh", hash);
-
-	fugue256_hash(&hash[0], &buf[0], 32);
-	printpfx("fugue256", hash);
-
-	gostd_hash(&hash[0], &buf[0]);
-	printpfx("gostcoin", hash);
-
-	groestlhash(&hash[0], &buf[0]);
-	printpfx("groestl", hash);
-
-	heavycoin_hash(&hash[0], &buf[0], 32);
-	printpfx("heavy", hash);
-
-	hmq17hash(&hash[0], &buf[0]);
-	printpfx("hmq1725", hash);
-
-	hsr_hash(&hash[0], &buf[0]);
-	printpfx("hsr", hash);
-
-	jha_hash(&hash[0], &buf[0]);
-	printpfx("jha", hash);
-
-	keccak256_hash(&hash[0], &buf[0]);
-	printpfx("keccak", hash);
-
-	sha3d_hash(&hash[0], &buf[0]);
-	printpfx("sha3d", hash);
-	
-	memset(buf, 0, 128);
-	lbry_hash(&hash[0], &buf[0]);
-	printpfx("lbry", hash);
-
-	luffa_hash(&hash[0], &buf[0]);
-	printpfx("luffa", hash);
-
-	lyra2re_hash(&hash[0], &buf[0]);
-	printpfx("lyra2", hash);
-
-	lyra2v2_hash(&hash[0], &buf[0]);
-	printpfx("lyra2v2", hash);
-
-	lyra2Z_hash(&hash[0], &buf[0]);
-	printpfx("lyra2z", hash);
-
-	myriadhash(&hash[0], &buf[0]);
-	printpfx("myriad", hash);
-
-	neoscrypt(&hash[0], &buf[0], 80000620);
-	printpfx("neoscrypt", hash);
-
-	nist5hash(&hash[0], &buf[0]);
-	printpfx("nist5", hash);
-
-	pentablakehash(&hash[0], &buf[0]);
-	printpfx("pentablake", hash);
-
-	phihash(&hash[0], &buf[0]);
-	printpfx("phi", hash);
-
-	polytimos_hash(&hash[0], &buf[0]);
-	printpfx("polytimos", hash);
-
-	quarkhash(&hash[0], &buf[0]);
-	printpfx("quark", hash);
-
-	qubithash(&hash[0], &buf[0]);
-	printpfx("qubit", hash);
-	
-	sha256d_hash(&hash[0], &buf[0]);
-	printpfx("sha256d", hash);
-
-	sha256t_hash(&hash[0], &buf[0]);
-	printpfx("sha256t", hash);
-
-	sia_blake2b_hash(&hash[0], &buf[0]);
-	printpfx("sia", hash);
-
-	sibhash(&hash[0], &buf[0]);
-	printpfx("sib", hash);
-
-	skeincoinhash(&hash[0], &buf[0]);
-	printpfx("skein", hash);
-
-	skein2hash(&hash[0], &buf[0]);
-	printpfx("skein2", hash);
-
-	skunk_hash(&hash[0], &buf[0]);
-	printpfx("skunk", hash);
-
-	s3hash(&hash[0], &buf[0]);
-	printpfx("S3", hash);
-
-	timetravel_hash(&hash[0], &buf[0]);
-	printpfx("timetravel", hash);
-
-	bitcore_hash(&hash[0], &buf[0]);
-	printpfx("bitcore", hash);
-
-	blake256hash(&hash[0], &buf[0], 8);
-	printpfx("vanilla", hash);
-
-	tribus_hash(&hash[0], &buf[0]);
-	printpfx("tribus", hash);
-
-	veltorhash(&hash[0], &buf[0]);
-	printpfx("veltor", hash);
-
-	wcoinhash(&hash[0], &buf[0]);
-	printpfx("whirlpool", hash);
-
-	//whirlxHash(&hash[0], &buf[0]);
-	//printpfx("whirlpoolx", hash);
-
-	x11evo_hash(&hash[0], &buf[0]);
-	printpfx("x11evo", hash);
-
-	hash0x10(&hash[0], &buf[0]);
-	printpfx("0x10", hash);
-
-	x11hash(&hash[0], &buf[0]);
-	printpfx("X11", hash);
-
-	x13hash(&hash[0], &buf[0]);
-	printpfx("X13", hash);
-
-	x14hash(&hash[0], &buf[0]);
-	printpfx("X14", hash);
-
-	x15hash(&hash[0], &buf[0]);
-	printpfx("X15", hash);
-
-	x16r_hash(&hash[0], &buf[0]);
-	printpfx("X16R", hash);
-
-	x16rt_hash(&hash[0], &buf[0]);
-	printpfx("X16RT", hash);
-
-	x16rv2_hash(&hash[0], &buf[0]);
-	printpfx("X16Rv2", hash);
-
-	x16s_hash(&hash[0], &buf[0]);
-	printpfx("X16S", hash);
-
-	x17hash(&hash[0], &buf[0]);
-	printpfx("X17", hash);
-
-	x21s_hash(&hash[0], &buf[0]);
-	printpfx("X21S", hash);
-
-	//memcpy(buf, zrtest, 80);
-	zr5hash(&hash[0], &buf[0]);
-	//zr5hash_pok(&hash[0], (uint32_t*) &buf[0]);
-	printpfx("ZR5", hash);
-
-	printf("\n");
-
-	do_gpu_tests();
-
-	free(scratchbuf);
-}
+#endif /* __MINER_H__ */
