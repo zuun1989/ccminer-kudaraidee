@@ -1809,7 +1809,7 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_YESCRYPTR16V2:
 		case ALGO_YESCRYPTR24:
 		case ALGO_YESCRYPTR32:
-			rinhash_work_set_target(work, sctx->job.diff / (65536.0 * opt_difficulty));
+			work_set_target(work, sctx->job.diff / (65536.0 * opt_difficulty));
 			break;
 		case ALGO_DMD_GR:
 		case ALGO_FRESH:
@@ -1829,11 +1829,9 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_X16S:
 		case ALGO_X21S:
 		case ALGO_EVOHASH:
-			rinhash_work_set_target(work, sctx->job.diff / (65536.0 * opt_difficulty));
-			break;
 		case ALGO_KECCAK:
 		case ALGO_LYRA2:
-			rinhash_work_set_target(work, sctx->job.diff / (128.0 * opt_difficulty));
+			work_set_target(work, sctx->job.diff / (128.0 * opt_difficulty));
 			break;
 		case ALGO_EQUIHASH:
 			equi_work_set_target(work, sctx->job.diff / opt_difficulty);
@@ -1842,9 +1840,9 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 			rinhash_work_set_target(work, sctx->job.diff);
 			break;
 		case ALGO_SHA3D:
-			rinhash_work_set_target(work, sctx->job.diff / opt_difficulty);
+			work_set_target(work, sctx->job.diff / opt_difficulty);
 		default:
-			rinhash_work_set_target(work, sctx->job.diff);
+			work_set_target(work, sctx->job.diff);
 	}
 
 	if (stratum_diff != sctx->job.diff) {

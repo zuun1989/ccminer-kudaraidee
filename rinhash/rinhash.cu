@@ -25,18 +25,18 @@ extern "C" __global__ void rinhash_cuda_kernel(
 ) {
     // Chỉ 1 thread xử lý
     if (threadIdx.x == 0) {
-        uint8_t blake3_out[32];
+        // Step 1: BLAKE3 hash - now using light_hash_device
         light_hash_device(input, input_len, blake3_out);
-
+        // Step 2: Argon2d hash
+        uint32_t m_cost = 64; // Example
+        size_t memory_size = m_cost * sizeof(block);
+        block* d_memory = (block*)malloc(memory_size);
         uint8_t salt[11] = { 'R','i','n','C','o','i','n','S','a','l','t' };
         uint8_t argon2_out[32];
         device_argon2d_hash(argon2_out, blake3_out, 32, 2, m_cost, 1, memory, salt, sizeof(salt));
 
         uint8_t sha3_out[32];
         sha3_256_device(argon2_out, 32, sha3_out);
-
-        // Copy kết quả ra output
-        for (int i = 0; i < 32; i++) output[i] = sha3_out[i];
     }
 }
 
@@ -232,13 +232,11 @@ extern "C" void RinHash_mine(
     uint8_t* best_hash
 ) {
     const size_t block_header_len = 80;
-    if (num_nonces > MAX_BATCH_BLOCKS) {
-        fprintf(stderr, "Mining batch too large (max %u)\n", MAX_BATCH_BLOCKS);
-        return;
-    }
-    std::vector<uint8_t> block_headers(block_header_len * num_nonces);
-    std::vector<uint8_t> hashes(32 * num_nonces);
-
+    int headerbytes = block_header_len * num_nonces;
+    int hashbytes = 32 * num_nonces;
+    uint8_t block_headers[80 * 1024];
+    uint8_t hashes[32 * 1024];
+    cudaDeviceSetLimit(cudaLimitMallocHeapSize, 256 * 1024 * 1024); // 128MB
     // Prepare block headers with different nonces
     for (uint32_t i = 0; i < num_nonces; i++) {
         uint32_t current_nonce = start_nonce + i;
