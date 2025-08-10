@@ -1809,7 +1809,7 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_YESCRYPTR16V2:
 		case ALGO_YESCRYPTR24:
 		case ALGO_YESCRYPTR32:
-			work_set_target(work, sctx->job.diff / (65536.0 * opt_difficulty));
+			rinhash_work_set_target(work, sctx->job.diff / (65536.0 * opt_difficulty));
 			break;
 		case ALGO_DMD_GR:
 		case ALGO_FRESH:
@@ -1829,19 +1829,22 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_X16S:
 		case ALGO_X21S:
 		case ALGO_EVOHASH:
-		case ALGO_RINHASH:
-			rinhash_work_set_target(work, sctx->job.diff);
+			rinhash_work_set_target(work, sctx->job.diff / (65536.0 * opt_difficulty));
 			break;
 		case ALGO_KECCAK:
 		case ALGO_LYRA2:
-			work_set_target(work, sctx->job.diff / (128.0 * opt_difficulty));
+			rinhash_work_set_target(work, sctx->job.diff / (128.0 * opt_difficulty));
 			break;
 		case ALGO_EQUIHASH:
 			equi_work_set_target(work, sctx->job.diff / opt_difficulty);
 			break;
+		case ALGO_RINHASH:
+			rinhash_work_set_target(work, sctx->job.diff);
+			break;
 		case ALGO_SHA3D:
+			rinhash_work_set_target(work, sctx->job.diff / opt_difficulty);
 		default:
-			work_set_target(work, sctx->job.diff / opt_difficulty);
+			rinhash_work_set_target(work, sctx->job.diff);
 	}
 
 	if (stratum_diff != sctx->job.diff) {
@@ -2102,7 +2105,7 @@ static void *miner_thread(void *userdata)
 			if (memcmp(&work.data[wcmpoft], &g_work.data[wcmpoft], wcmplen)) {
 				memcpy(&work, &g_work, sizeof(struct work));
 				if (!nicehash) nonceptr[0] = (rand()*4) << 24;
-				nonceptr[0] &=  0xFF000000u; // nicehash prefix hack
+				nonceptr[0] &=  0x0FF00000u; // nicehash prefix hack
 				nonceptr[0] |= (0x00FFFFFFu / opt_n_threads) * thr_id;
 			}
 			// also check the end, nonce in the middle
@@ -2112,7 +2115,7 @@ static void *miner_thread(void *userdata)
 			if (oldpos & 0xFFFF) {
 				if (!nicehash) nonceptr[0] = oldpos + 0x1000000u;
 				else {
-					uint32_t pfx = nonceptr[0] & 0xFF000000u;
+					uint32_t pfx = nonceptr[0] & 0x0FF00000u;
 					nonceptr[0] = pfx | ((oldpos + 0x8000u) & 0xFFFFFFu);
 				}
 			}
