@@ -682,6 +682,7 @@ extern bool fulltest(const uint32_t *hash, const uint32_t *target);
 void diff_to_target(uint32_t* target, double diff);
 void work_set_target(struct work* work, double diff);
 void rinhash_work_set_target(struct work* work, double diff);
+void rinhash_set_target_ratio(struct work* work, uint32_t* hash);
 // void work_set_target(struct work* work, double diff);
 double target_to_diff(uint32_t* target);
 extern void get_currentalgo(char* buf, int sz);
