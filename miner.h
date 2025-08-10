@@ -289,11 +289,7 @@ void gostd(void *output, const void *input, size_t len);
 struct work;
 
 extern int scanhash_allium(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
-extern int scanhash_argon2d64(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
-extern int scanhash_argon2d250(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
-extern int scanhash_argon2d500(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_argon2d1000(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
-extern int scanhash_argon2d4096(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_argon2d16000(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_anime(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 extern int scanhash_heavyhash(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
@@ -375,11 +371,7 @@ extern int scanhash_yescryptr32(int thr_id, struct work* work, uint32_t max_nonc
 void algo_free_all(int thr_id);
 
 extern void free_allium(int thr_id);
-extern void free_argon2d64(int thr_id);
-extern void free_argon2d250(int thr_id);
-extern void free_argon2d500(int thr_id);
 extern void free_argon2d1000(int thr_id);
-extern void free_argon2d4096(int thr_id);
 extern void free_argon2d16000(int thr_id);
 extern void free_heavyhash(int thr_id);
 extern void free_bastion(int thr_id);
@@ -421,7 +413,6 @@ extern void free_qubit(int thr_id);
 extern void free_sha256d(int thr_id);
 extern void free_sha256csm(int thr_id);
 extern void free_sha256t(int thr_id);
-extern void free_rinhash(int thr_id);
 extern void free_sha3d(int thr_id);
 extern void free_sia(int thr_id);
 extern void free_sib(int thr_id);
@@ -681,8 +672,6 @@ extern int timeval_subtract(struct timeval *result, struct timeval *x,
 extern bool fulltest(const uint32_t *hash, const uint32_t *target);
 void diff_to_target(uint32_t* target, double diff);
 void work_set_target(struct work* work, double diff);
-void rinhash_work_set_target(struct work* work, double diff);
-// void work_set_target(struct work* work, double diff);
 double target_to_diff(uint32_t* target);
 extern void get_currentalgo(char* buf, int sz);
 
