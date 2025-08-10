@@ -1830,7 +1830,7 @@ static bool stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		case ALGO_X21S:
 		case ALGO_EVOHASH:
 		case ALGO_RINHASH:
-			work_set_target(work, sctx->job.diff / (256.0 * opt_difficulty));
+			rinhash_work_set_target(work, sctx->job.diff);
 			break;
 		case ALGO_KECCAK:
 		case ALGO_LYRA2:

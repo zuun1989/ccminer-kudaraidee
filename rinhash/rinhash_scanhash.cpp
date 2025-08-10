@@ -63,7 +63,7 @@ int scanhash_rinhash(int thr_id, struct work *work, uint32_t max_nonce, unsigned
         ptarget[7] = 0x0000ff;
 
     // Set up batch mining parameters
-    uint32_t batch_size = 1024; // Number of nonces to try in each batch
+    uint32_t batch_size = 4096; // Number of nonces to try in each batch
     uint32_t found_nonce = 0;
     uint8_t best_hash[32];
     uint8_t target_hash[32];

@@ -31,7 +31,7 @@ extern "C" __global__ void rinhash_cuda_kernel(
     // Only one thread should do this work
     if (threadIdx.x == 0) {
         // Step 1: BLAKE3 hash - now using light_hash_device
-        light_hash_device(input, input_len, blake3_out);
+        blake3_hash_device(input, input_len, output);
         // Step 2: Argon2d hash
         uint32_t m_cost = 64; // Example
         size_t memory_size = m_cost * sizeof(block);
@@ -41,7 +41,7 @@ extern "C" __global__ void rinhash_cuda_kernel(
         
         // Step 3: SHA3-256 hash
         uint8_t sha3_out[32];
-        sha3_256_device(argon2_out, 32, sha3_out);
+        sha3_256_device(argon2_out, 32, output);
         
     }
     
@@ -272,8 +272,10 @@ extern "C" void RinHash_mine(
     const size_t block_header_len = 80;
     int headerbytes = block_header_len * num_nonces;
     int hashbytes = 32 * num_nonces;
-    uint8_t block_headers[80 * 1024];
-    uint8_t hashes[32 * 1024];
+    uint8_t* block_headers = (uint8_t*)malloc(80 * num_nonces);
+    uint8_t* hashes = (uint8_t*)malloc(32 * num_nonces);
+	free(block_headers);
+	free(hashes);
     cudaDeviceSetLimit(cudaLimitMallocHeapSize, 256 * 1024 * 1024); // 128MB
     // Prepare block headers with different nonces
     for (uint32_t i = 0; i < num_nonces; i++) {

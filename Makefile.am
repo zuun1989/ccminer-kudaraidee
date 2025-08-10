@@ -98,7 +98,7 @@ ccminer_SOURCES	= elist.h miner.h compat.h \
 			  x21/x21s.cu x21/cuda_sha256_2.cu x21/cuda_tiger192.cu \
 			  sph/yescrypt.h sph/yescrypt-platform.h sph/yescrypt-opt.c sph/yescrypt-common.c \
 			  yescrypt/cuda_yescrypt.cu yescrypt/yescrypt.cu \
-			  rinhash/rinhash_scanhash.cpp rinhash/rinhash.cu evohash/evohash.cu
+			  rinhash/rinhash.cu evohash/evohash.cu
 			  
 # scrypt
 ccminer_SOURCES += scrypt.cpp scrypt-jane.cpp \
@@ -136,23 +136,10 @@ nvcc_ARCH :=
 #nvcc_ARCH += -gencode=arch=compute_101,code=\"sm_101,compute_101\"
 #nvcc_ARCH += -gencode=arch=compute_100a,code=\"sm_100a,compute_100a\"
 #nvcc_ARCH += -gencode=arch=compute_100,code=\"sm_100,compute_100\"
-nvcc_ARCH += -gencode=arch=compute_90a,code=\"sm_90a,compute_90a\" #CUDA 12.0
-nvcc_ARCH += -gencode=arch=compute_90,code=\"sm_90,compute_90\"
-nvcc_ARCH += -gencode=arch=compute_89,code=\"sm_89,compute_89\" #CUDA 11
-nvcc_ARCH += -gencode=arch=compute_87,code=\"sm_87,compute_87\"
-nvcc_ARCH += -gencode=arch=compute_86,code=\"sm_86,compute_86\"
-nvcc_ARCH += -gencode=arch=compute_80,code=\"sm_80,compute_80\"
-nvcc_ARCH += -gencode=arch=compute_75,code=\"sm_75,compute_75\" # CUDA 10
-nvcc_ARCH += -gencode=arch=compute_72,code=\"sm_72,compute_72\"
-nvcc_ARCH += -gencode=arch=compute_70,code=\"sm_70,compute_70\" # CUDA 9.1
-nvcc_ARCH += -gencode=arch=compute_62,code=\"sm_62,compute_62\"
-nvcc_ARCH += -gencode=arch=compute_61,code=\"sm_61,compute_61\" # CUDA 8
-nvcc_ARCH += -gencode=arch=compute_60,code=\"sm_60,compute_60\"
-nvcc_ARCH += -gencode=arch=compute_52,code=\"sm_52,compute_52\"
-nvcc_ARCH += -gencode=arch=compute_50,code=\"sm_50,compute_50\"
+nvcc_ARCH += -gencode=arch=compute_61,code=\"sm_61,compute_61\" # CUDA 12.4
 
 nvcc_FLAGS = $(nvcc_ARCH) @CUDA_INCLUDES@ -I. @CUDA_CFLAGS@
-nvcc_FLAGS += $(JANSSON_INCLUDES) --ptxas-options="-v"
+nvcc_FLAGS += $(JANSSON_INCLUDES) --ptxas-options="-v" --std=c++17
 
 # we're now targeting all major compute architectures within one binary.
 .cu.o:

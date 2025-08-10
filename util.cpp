@@ -852,6 +852,10 @@ void work_set_target(struct work* work, double diff)
 	work->targetdiff = diff;
 }
 
+void rinhash_work_set_target(struct work* work, double diff) {
+    diff_to_target(work->target, diff / 20480.0);
+    work->targetdiff = diff;
+}
 
 // Only used by longpoll pools
 double target_to_diff(uint32_t* target)
