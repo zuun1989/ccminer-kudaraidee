@@ -6,29 +6,24 @@
 #include <vector>
 #include <stdexcept>
 
-// Include shared device functions
+// Include shared device functions (chỉ include .cuh hoặc .h)
 #include "rinhash_device.cuh"
 #include "argon2d_device.cuh"
 #include "sha3-256.cu"
 #include "blake3_device.cuh"
 
+// Số block tối đa cho batch (tùy GPU)
+#define MAX_BATCH_BLOCKS 16384
 
-// External references to our CUDA implementations
-extern "C" void blake3_hash(const uint8_t* input, size_t input_len, uint8_t* output);
-extern "C" void argon2d_hash_rinhash(uint8_t* output, const uint8_t* input, size_t input_len);
-extern "C" void sha3_256_hash(const uint8_t* input, size_t input_len, uint8_t* output);
-
-// Modified kernel to use device functions
+// Kernel đơn: mỗi lần chỉ chạy 1 thread
 extern "C" __global__ void rinhash_cuda_kernel(
     const uint8_t* input, 
     size_t input_len, 
-    uint8_t* output
+    uint8_t* output,
+    block* memory,      // bộ nhớ argon2 đã cấp phát trên host, truyền vào
+    uint32_t m_cost
 ) {
-    // Intermediate results in shared memory
-    uint8_t blake3_out[32];
-    uint8_t argon2_out[32];
-    
-    // Only one thread should do this work
+    // Chỉ 1 thread xử lý
     if (threadIdx.x == 0) {
         // Step 1: BLAKE3 hash - now using light_hash_device
         light_hash_device(input, input_len, blake3_out);
@@ -37,103 +32,132 @@ extern "C" __global__ void rinhash_cuda_kernel(
         size_t memory_size = m_cost * sizeof(block);
         block* d_memory = (block*)malloc(memory_size);
         uint8_t salt[11] = { 'R','i','n','C','o','i','n','S','a','l','t' };
-        device_argon2d_hash(argon2_out, blake3_out, 32, 2, 64, 1, d_memory, salt, 11);
-        
-        // Step 3: SHA3-256 hash
+        uint8_t argon2_out[32];
+        device_argon2d_hash(argon2_out, blake3_out, 32, 2, m_cost, 1, memory, salt, sizeof(salt));
+
         uint8_t sha3_out[32];
         sha3_256_device(argon2_out, 32, sha3_out);
-        
     }
-    
-    // Use syncthreads to ensure all threads wait for the computation to complete
-    __syncthreads();
 }
 
-// Modified kernel to use device functions
+// Kernel batch: mỗi thread xử lý 1 block header
 extern "C" __global__ void rinhash_cuda_kernel_batch(
     const uint8_t* headers,         // num_blocks * 80 bytes
     size_t header_len,              // = 80
     uint8_t* outputs,               // num_blocks * 32 bytes
-    uint32_t num_blocks
+    uint32_t num_blocks,
+    block* memories,                // num_blocks * m_cost * sizeof(block)
+    uint32_t m_cost
 ) {
     uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid >= num_blocks) {
-        return;
-    }
+    if (tid >= num_blocks) return;
     const uint8_t* input = headers + tid * header_len;
     uint8_t* output = outputs + tid * 32;
+    block* memory = memories + tid * m_cost;
 
-    // RinHash Steps
     uint8_t blake3_out[32];
     light_hash_device(input, header_len, blake3_out);
-
-    uint32_t m_cost = 64;
-    block* memory = (block*)malloc(m_cost * sizeof(block));
-    if (!memory) return;
 
     uint8_t salt[11] = { 'R','i','n','C','o','i','n','S','a','l','t' };
     uint8_t argon2_out[32];
     device_argon2d_hash(argon2_out, blake3_out, 32, 2, m_cost, 1, memory, salt, sizeof(salt));
 
     sha3_256_device(argon2_out, 32, output);
-    free(memory);
 }
 
 
-// RinHash CUDA implementation
+// Helper: kiểm tra lỗi CUDA
+inline void check_cuda(const char* msg) {
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        fprintf(stderr, "CUDA error at %s: %s\n", msg, cudaGetErrorString(err));
+        throw std::runtime_error("CUDA error");
+    }
+}
+
+// RinHash CUDA implementation (single)
 extern "C" void rinhash_cuda(const uint8_t* input, size_t input_len, uint8_t* output) {
-    // Allocate device memory
     uint8_t *d_input = nullptr;
     uint8_t *d_output = nullptr;
+    block* d_memory = nullptr;
+    uint32_t m_cost = 64;
 
     cudaError_t err;
 
-    // Allocate memory on device
+    // Alloc device memory
     err = cudaMalloc(&d_input, input_len);
-    if (err != cudaSuccess) {
-        fprintf(stderr, "CUDA error: Failed to allocate input memory: %s\n", cudaGetErrorString(err));
-        return;
-    }
+    if (err != cudaSuccess) { fprintf(stderr, "CUDA: alloc input fail\n"); return; }
 
     err = cudaMalloc(&d_output, 32);
-    if (err != cudaSuccess) {
-        fprintf(stderr, "CUDA error: Failed to allocate output memory: %s\n", cudaGetErrorString(err));
-        cudaFree(d_input);
-        return;
-    }
-    
+    if (err != cudaSuccess) { fprintf(stderr, "CUDA: alloc output fail\n"); cudaFree(d_input); return; }
 
-    // Copy input data to device
+    err = cudaMalloc(&d_memory, m_cost * sizeof(block));
+    if (err != cudaSuccess) { fprintf(stderr, "CUDA: alloc argon2 memory fail\n"); cudaFree(d_input); cudaFree(d_output); return; }
+
+    // Copy input
     err = cudaMemcpy(d_input, input, input_len, cudaMemcpyHostToDevice);
-    if (err != cudaSuccess) {
-        fprintf(stderr, "CUDA error: Failed to copy input to device: %s\n", cudaGetErrorString(err));
-        cudaFree(d_input);
-        cudaFree(d_output);
-        return;
-    }
+    if (err != cudaSuccess) { fprintf(stderr, "CUDA: copy input fail\n"); cudaFree(d_input); cudaFree(d_output); cudaFree(d_memory); return; }
 
-    // Launch the kernel
-    rinhash_cuda_kernel<<<1, 1>>>(d_input, input_len, d_output);
+    // Launch kernel
+    rinhash_cuda_kernel<<<256, 1024>>>(d_input, input_len, d_output, d_memory, m_cost);
+    cudaDeviceSynchronize();
+    check_cuda("rinhash_cuda_kernel");
 
-    // Wait for kernel to finish
-    err = cudaDeviceSynchronize();
-    if (err != cudaSuccess) {
-        fprintf(stderr, "CUDA error during kernel execution: %s\n", cudaGetErrorString(err));
-        cudaFree(d_input);
-        cudaFree(d_output);
-        return;
-    }
-
-    // Copy result back to host
+    // Copy result
     err = cudaMemcpy(output, d_output, 32, cudaMemcpyDeviceToHost);
-    if (err != cudaSuccess) {
-        fprintf(stderr, "CUDA error: Failed to copy output from device: %s\n", cudaGetErrorString(err));
-    }
-    // Free device memory
+    if (err != cudaSuccess) { fprintf(stderr, "CUDA: copy output fail\n"); }
+
+    // Free
     cudaFree(d_input);
     cudaFree(d_output);
+    cudaFree(d_memory);
 }
 
+// Batch processing version for mining
+extern "C" void rinhash_cuda_batch(
+    const uint8_t* block_headers,
+    size_t block_header_len,
+    uint8_t* outputs,
+    uint32_t num_blocks
+) {
+    if (num_blocks > MAX_BATCH_BLOCKS) {
+        fprintf(stderr, "Batch too large (max %u)\n", MAX_BATCH_BLOCKS);
+        return;
+    }
+
+    uint8_t *d_headers = nullptr, *d_outputs = nullptr;
+    block* d_memories = nullptr;
+    uint32_t m_cost = 64;
+    size_t headers_size = block_header_len * num_blocks;
+    size_t outputs_size = 32 * num_blocks;
+    size_t memories_size = num_blocks * m_cost * sizeof(block);
+
+    cudaError_t err;
+    err = cudaMalloc(&d_headers, headers_size);
+    if (err != cudaSuccess) { fprintf(stderr, "CUDA: alloc headers fail\n"); return; }
+    err = cudaMalloc(&d_outputs, outputs_size);
+    if (err != cudaSuccess) { fprintf(stderr, "CUDA: alloc outputs fail\n"); cudaFree(d_headers); return; }
+    err = cudaMalloc(&d_memories, memories_size);
+    if (err != cudaSuccess) { fprintf(stderr, "CUDA: alloc argon2 memories fail\n"); cudaFree(d_headers); cudaFree(d_outputs); return; }
+
+    cudaMemset(d_outputs, 0xee, outputs_size);
+    cudaMemcpy(d_headers, block_headers, headers_size, cudaMemcpyHostToDevice);
+
+    const int threads_per_block = 128;
+    int blocks = (num_blocks + threads_per_block - 1) / threads_per_block;
+    rinhash_cuda_kernel_batch<<<blocks, threads_per_block>>>(
+        d_headers, block_header_len, d_outputs, num_blocks, d_memories, m_cost
+    );
+    cudaDeviceSynchronize();
+    check_cuda("rinhash_cuda_kernel_batch");
+
+    err = cudaMemcpy(outputs, d_outputs, outputs_size, cudaMemcpyDeviceToHost);
+    if (err != cudaSuccess) { fprintf(stderr, "CUDA: copy output batch fail\n"); }
+
+    cudaFree(d_headers);
+    cudaFree(d_outputs);
+    cudaFree(d_memories);
+}
 
 // Helper function to convert a block header to bytes
 extern "C" void blockheader_to_bytes(
@@ -147,70 +171,14 @@ extern "C" void blockheader_to_bytes(
     size_t* output_len
 ) {
     size_t offset = 0;
-    
-    // Version (4 bytes)
-    memcpy(output + offset, version, 4);
-    offset += 4;
-    
-    // Previous block hash (32 bytes)
-    memcpy(output + offset, prev_block, 32);
-    offset += 32;
-    
-    // Merkle root (32 bytes)
-    memcpy(output + offset, merkle_root, 32);
-    offset += 32;
-    
-    // Timestamp (4 bytes)
-    memcpy(output + offset, timestamp, 4);
-    offset += 4;
-    
-    // Bits (4 bytes)
-    memcpy(output + offset, bits, 4);
-    offset += 4;
-    
-    // Nonce (4 bytes)
-    memcpy(output + offset, nonce, 4);
-    offset += 4;
-    
+    memcpy(output + offset, version, 4); offset += 4;
+    memcpy(output + offset, prev_block, 32); offset += 32;
+    memcpy(output + offset, merkle_root, 32); offset += 32;
+    memcpy(output + offset, timestamp, 4); offset += 4;
+    memcpy(output + offset, bits, 4); offset += 4;
+    memcpy(output + offset, nonce, 4); offset += 4;
     *output_len = offset;
 }
-
-// Batch processing version for mining
-extern "C" void rinhash_cuda_batch(
-    const uint8_t* block_headers,
-    size_t block_header_len,
-    uint8_t* outputs,
-    uint32_t num_blocks
-) {
-    uint8_t *d_headers = nullptr, *d_outputs = nullptr;
-    size_t headers_size = block_header_len * num_blocks;
-    size_t outputs_size = 32 * num_blocks;
-    cudaError_t err;
-
-    cudaMalloc(&d_headers, headers_size);
-    cudaMalloc(&d_outputs, outputs_size);
-    cudaMemset(d_outputs, 0xee, outputs_size);
-
-    cudaMemcpy(d_headers, block_headers, headers_size, cudaMemcpyHostToDevice);
-
-    // <<<block数, スレッド数>>>
-    const int threads_per_block = 128;
-    int blocks = (num_blocks + threads_per_block - 1) / threads_per_block;
-    rinhash_cuda_kernel_batch<<<blocks, threads_per_block>>>(
-        d_headers, block_header_len, d_outputs, num_blocks
-    );
-
-    cudaDeviceSynchronize();
-
-    err = cudaMemcpy(outputs, d_outputs, outputs_size, cudaMemcpyDeviceToHost);
-    if (err != cudaSuccess) {
-        fprintf(stderr, "CUDA error: Failed to copy output from device: %s\n", cudaGetErrorString(err));
-    }
-
-    cudaFree(d_headers);
-    cudaFree(d_outputs);
-}
-
 
 // Main RinHash function that would be called from outside
 extern "C" void RinHash(
@@ -224,8 +192,6 @@ extern "C" void RinHash(
 ) {
     uint8_t block_header[80]; // Standard block header size
     size_t block_header_len;
-    
-    // Convert block header to bytes
     blockheader_to_bytes(
         version,
         prev_block,
@@ -236,8 +202,6 @@ extern "C" void RinHash(
         block_header,
         &block_header_len
     );
-    
-    // Calculate RinHash
     rinhash_cuda(block_header, block_header_len, output);
 }
 
@@ -247,12 +211,10 @@ bool is_better(uint8_t* hash1, uint8_t* hash2) {
                       ((uint32_t)hash1[i*4 + 1] << 8) |
                       ((uint32_t)hash1[i*4 + 2] << 16) |
                       ((uint32_t)hash1[i*4 + 3] << 24);
-
         uint32_t h2 = ((uint32_t)hash2[i*4 + 0]) |
                       ((uint32_t)hash2[i*4 + 1] << 8) |
                       ((uint32_t)hash2[i*4 + 2] << 16) |
                       ((uint32_t)hash2[i*4 + 3] << 24);
-
         if (h1 < h2) return true;
         if (h1 > h2) return false;
     }
@@ -279,32 +241,19 @@ extern "C" void RinHash_mine(
     for (uint32_t i = 0; i < num_nonces; i++) {
         uint32_t current_nonce = start_nonce + i;
         uint32_t work_data_copy[20];
-        
-        // Copy work data and update nonce
         memcpy(work_data_copy, work_data, 80);
         work_data_copy[nonce_offset] = current_nonce;
-        
-        // Fill header
-        uint8_t* header = block_headers + i * block_header_len;
-        size_t header_len;
-        
-        memcpy(header, work_data_copy, 80);
+        memcpy(&block_headers[i * block_header_len], work_data_copy, 80);
     }
-    
-    // Calculate hashes for all nonces
-    rinhash_cuda_batch(block_headers, block_header_len, hashes, num_nonces);
-    
-    // Initialize best_hash with maximum value (worst possible hash)
-    memcpy(best_hash, hashes, 32); // Initialize to the first hash
-    *found_nonce = start_nonce;
-    
-    // Find the best hash
-    for (uint32_t i = 0; i < num_nonces; i++) {
-        uint8_t* current_hash = hashes + i * 32;
-        
-        bool is_current_better = false;
 
-        
+    // Calculate hashes for all nonces
+    rinhash_cuda_batch(block_headers.data(), block_header_len, hashes.data(), num_nonces);
+
+    // Initialize best_hash with the first hash
+    memcpy(best_hash, hashes.data(), 32);
+    *found_nonce = start_nonce;
+    for (uint32_t i = 1; i < num_nonces; i++) {
+        uint8_t* current_hash = hashes.data() + i * 32;
         if (is_better(current_hash, best_hash)) {
             memcpy(best_hash, current_hash, 32);
             *found_nonce = start_nonce + i;

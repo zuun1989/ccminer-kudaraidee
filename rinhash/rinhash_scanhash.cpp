@@ -116,7 +116,7 @@ int scanhash_rinhash(int thr_id, struct work *work, uint32_t max_nonce, unsigned
             const uint32_t Htarg = ptarget[7];
             if (vhash[7] <= Htarg && fulltest(vhash, ptarget)) {
                 work->valid_nonces = 1;
-                work_set_target_ratio(work, vhash);
+                rinhash_set_target_ratio(work, vhash);
                 work->nonces[0] = found_nonce;
                 pdata[19] = found_nonce + 1;
                 return 1;
