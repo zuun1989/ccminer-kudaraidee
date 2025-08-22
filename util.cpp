@@ -798,7 +798,7 @@ bool fulltest(const uint32_t *hash, const uint32_t *target)
 			rc = true;
 			break;
 		}
-		if (hash[1] == target[1]) {
+		if (hash[i] == target[i]) {
 			applog(LOG_NOTICE, "We found a close match!");
 		}
 	}
